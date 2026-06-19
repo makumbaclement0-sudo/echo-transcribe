@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+.venv
+data
+*.log
+npm-debug.log*
+.env*
+README.md
+DEPLOY.md
+start-public.cmd

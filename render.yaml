@@ -1,0 +1,26 @@
+# Render Blueprint — deploys Echo as an always-on Docker web service.
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: echo-transcribe
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: standard # 2 GB RAM — needed for Whisper. (starter/512MB is too small.)
+    region: oregon
+    healthCheckPath: /api/jobs
+    autoDeploy: true
+    disk:
+      name: echo-data
+      mountPath: /var/data # transcripts, uploads, and the Whisper model cache
+      sizeGB: 5
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false # set this secret in the Render dashboard
+      - key: ANTHROPIC_MODEL
+        value: claude-sonnet-4-6
+      - key: WHISPER_MODEL
+        value: base
+      - key: DATA_DIR
+        value: /var/data
+      - key: HF_HOME
+        value: /var/data/hf
