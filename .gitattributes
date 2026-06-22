@@ -1,0 +1,5 @@
+# Keep shell scripts LF so they run on the Linux VM (CRLF breaks bash).
+*.sh text eol=lf
+oracle-setup.sh text eol=lf
+# Normalize everything else automatically.
+* text=auto
