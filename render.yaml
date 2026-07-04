@@ -24,3 +24,34 @@ services:
         value: /var/data
       - key: HF_HOME
         value: /var/data/hf
+
+  # --- Funding-rate arbitrage bot: site + engine in ONE always-on service ---
+  # Deploys the bot branch; the engine runs inside the web server via
+  # BOT_AUTOSTART. Paper mode unless LIVE_TRADING is changed in the dashboard
+  # env settings (plus API keys). Starter plan: no idle spin-down, so the
+  # engine keeps scanning 24/7.
+  - type: web
+    name: funding-bot
+    runtime: node
+    plan: starter
+    region: oregon
+    branch: claude/funding-rate-arbitrage-bot-z9bt7u
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    disk:
+      name: bot-data
+      mountPath: /var/data # positions, trade history, engine state
+      sizeGB: 1
+    envVars:
+      - key: BOT_AUTOSTART
+        value: "true"
+      - key: DATA_DIR
+        value: /var/data
+      - key: LIVE_TRADING
+        value: "false"
+      - key: APP_USER
+        sync: false # set in the Render dashboard — protects the site with a login
+      - key: APP_PASSWORD
+        sync: false

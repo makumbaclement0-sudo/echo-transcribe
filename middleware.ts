@@ -4,8 +4,9 @@ import { NextRequest, NextResponse } from "next/server";
 // (APP_USER / APP_PASSWORD). If they aren't set, the site stays open so you
 // can't accidentally lock yourself out.
 export const config = {
-  // Apply to everything except Next.js static assets and the favicon.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Apply to everything except Next.js static assets, the favicon, and the
+  // unauthenticated health check used by hosting platforms.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/health).*)"],
 };
 
 function timingSafeEqual(a: string, b: string): boolean {
