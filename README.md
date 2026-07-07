@@ -135,6 +135,19 @@ database. The dashboard shows the live scanner table, open positions with
 funding/PnL, trade history, and has start/stop, per-position close, a kill
 switch, and editable risk limits.
 
+> Single-process alternative: set `BOT_AUTOSTART=true` and the engine runs
+> inside the web server itself — one `next dev`/`next start` does everything.
+
+## Run it 24/7 on Windows (auto-start at logon)
+
+One-time setup, same pattern as Echo's `serve.ps1` task: in your bot checkout,
+double-click **`install-bot-autostart.cmd`**. It registers a "FundingBot"
+scheduled task that runs `bot-serve.ps1` hidden at every logon — production
+build, site + embedded engine on port **3010**, auto-restart on crashes — and
+starts it immediately. Dashboard: `http://localhost:3010/bot` (or
+`http://<PC-IP>:3010/bot` from your phone on the same Wi-Fi). Logs live in
+`data\`. Undo with `schtasks /Delete /TN "FundingBot" /F`.
+
 ## Paper vs live
 
 The bot **always starts in paper mode**: it uses real market data but
