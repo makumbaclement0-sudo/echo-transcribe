@@ -1,6 +1,7 @@
 import { Exchange } from "ccxt";
 import { randomUUID } from "crypto";
 import { ExchangePair } from "./exchanges";
+import { legPricePnl } from "./pnl";
 import { FundingSnapshot, Opportunity, OpportunityLeg, Position, PositionLeg, Trade } from "./types";
 
 // Two executors behind one interface. PaperExecutor simulates fills against
@@ -82,12 +83,6 @@ function legTrade(
     paper,
     orderId,
   };
-}
-
-/** Price-side PnL of one leg (excludes funding and fees). */
-export function legPricePnl(leg: PositionLeg, price: number): number {
-  const dir = leg.side === "long" ? 1 : -1;
-  return (price - leg.entryPrice) * leg.qty * dir;
 }
 
 export function positionUnrealizedPnl(pos: Position): number {

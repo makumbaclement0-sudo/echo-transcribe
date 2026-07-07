@@ -69,11 +69,18 @@ export async function runEngine(opts: EngineOptions = {}): Promise<void> {
   const pairs = createExchanges();
   log("loading markets for", pairs.map((p) => p.id).join(", "), "…");
   await loadAllMarkets(pairs);
+  // Transient network failures at startup (DNS blips, ISP hiccups at boot)
+  // must not kill a trading daemon — retry until at least one venue answers.
+  while (pairs.every((p) => !p.ok)) {
+    for (const p of pairs) {
+      log(`  ${p.id}: UNAVAILABLE (${(p.lastError ?? "").slice(0, 120)})`);
+    }
+    log("no exchange reachable — retrying in 60s (geo-blocks won't clear, outages will)");
+    await sleep(60_000);
+    await loadAllMarkets(pairs);
+  }
   for (const p of pairs) {
     log(`  ${p.id}: ${p.ok ? "ok" : `UNAVAILABLE (${(p.lastError ?? "").slice(0, 120)})`}`);
-  }
-  if (pairs.every((p) => !p.ok)) {
-    return fatal("no exchange reachable — check network/geo restrictions.");
   }
 
   const executor: Executor = config.liveTrading

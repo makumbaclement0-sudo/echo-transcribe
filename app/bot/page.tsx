@@ -2,6 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import {
+  BaseBreakdown,
+  positionFeesUsd,
+  positionHoldHours,
+  positionPricePnlUsd,
+} from "@/lib/bot/pnl";
 import { EngineState, Opportunity, Position, Trade } from "@/lib/bot/types";
 
 const POLL_MS = 5000;
@@ -23,7 +29,10 @@ function signColor(v: number | undefined | null): string {
 }
 
 function age(iso: string): string {
-  const h = (Date.now() - new Date(iso).getTime()) / 3_600_000;
+  return hold((Date.now() - new Date(iso).getTime()) / 3_600_000);
+}
+
+function hold(h: number): string {
   if (h < 1) return `${Math.round(h * 60)}m`;
   if (h < 48) return `${h.toFixed(1)}h`;
   return `${(h / 24).toFixed(1)}d`;
@@ -52,6 +61,7 @@ export default function BotDashboard() {
   const [opps, setOpps] = useState<Opportunity[]>([]);
   const [open, setOpen] = useState<Position[]>([]);
   const [closed, setClosed] = useState<Position[]>([]);
+  const [byBase, setByBase] = useState<BaseBreakdown[]>([]);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -59,16 +69,18 @@ export default function BotDashboard() {
 
   const refresh = useCallback(async () => {
     try {
-      const [s, o, p] = await Promise.all([
+      const [s, o, p, b] = await Promise.all([
         fetch("/api/bot/status", { cache: "no-store" }).then((r) => r.json()),
         fetch("/api/bot/opportunities", { cache: "no-store" }).then((r) => r.json()),
         fetch("/api/bot/positions", { cache: "no-store" }).then((r) => r.json()),
+        fetch("/api/bot/breakdown", { cache: "no-store" }).then((r) => r.json()),
       ]);
       setState(s.state ?? null);
       setEngineAlive(Boolean(s.engineAlive));
       setOpps(o.opportunities ?? []);
       setOpen(p.open ?? []);
-      setClosed(p.closed ?? []);
+      setClosed(b.closed ?? p.closed ?? []);
+      setByBase(b.byBase ?? []);
       setTrades(p.trades ?? []);
     } catch {
       // transient polling errors are fine
@@ -389,39 +401,155 @@ export default function BotDashboard() {
         )}
       </section>
 
-      {/* history */}
-      <section className="mb-8 grid gap-8 lg:grid-cols-2">
-        <div>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-[var(--muted)]">
-            Closed positions
-          </h2>
-          {closed.length === 0 ? (
-            <p className="rounded-xl border border-[var(--border)] bg-[var(--surface)]/60 p-5 text-sm text-[var(--muted)]">
-              Nothing closed yet.
-            </p>
-          ) : (
-            <ul className="space-y-2 text-sm">
-              {closed.map((p) => (
-                <li
-                  key={p.id}
-                  className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)]/50 px-3 py-2"
-                >
-                  <span className="font-semibold">{p.base}</span>
-                  <KindBadge kind={p.kind} />
-                  <span className="min-w-0 flex-1 truncate text-xs text-[var(--muted)]">
-                    {p.closeReason}
-                  </span>
-                  <span className={`text-xs ${signColor(p.fundingUsd)}`}>
-                    fund {usd(p.fundingUsd)}
-                  </span>
-                  <span className={`font-semibold ${signColor(p.realizedPnlUsd)}`}>
-                    {usd(p.realizedPnlUsd)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+      {/* PnL attribution by coin */}
+      <section className="mb-8">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-[var(--muted)]">
+          PnL by coin — funding vs costs
+        </h2>
+        {byBase.length === 0 ? (
+          <p className="rounded-xl border border-[var(--border)] bg-[var(--surface)]/60 p-5 text-sm text-[var(--muted)]">
+            No positions yet.
+          </p>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
+            <table className="w-full text-sm">
+              <thead className="bg-[var(--surface-2)]/70 text-left text-xs uppercase tracking-wide text-[var(--muted)]">
+                <tr>
+                  <th className="px-3 py-2">Coin</th>
+                  <th className="px-3 py-2 text-right">Round-trips</th>
+                  <th className="px-3 py-2 text-right">Funding</th>
+                  <th className="px-3 py-2 text-right">Fees</th>
+                  <th className="px-3 py-2 text-right">Price PnL</th>
+                  <th className="px-3 py-2 text-right">Net realized</th>
+                  <th className="px-3 py-2 text-right">Open</th>
+                  <th className="px-3 py-2 text-right">Avg hold</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-t border-[var(--border)] bg-[var(--surface-2)]/40 font-semibold">
+                  <td className="px-3 py-2">All coins</td>
+                  <td className="px-3 py-2 text-right">
+                    {byBase.reduce((s, r) => s + r.roundTrips, 0)}{" "}
+                    <span className="text-xs text-[var(--muted)]">
+                      ({byBase.reduce((s, r) => s + r.wins, 0)}W)
+                    </span>
+                  </td>
+                  <td className={`px-3 py-2 text-right ${signColor(byBase.reduce((s, r) => s + r.fundingUsd, 0))}`}>
+                    {usd(byBase.reduce((s, r) => s + r.fundingUsd, 0))}
+                  </td>
+                  <td className="px-3 py-2 text-right text-rose-400">
+                    -{usd(byBase.reduce((s, r) => s + r.feesUsd, 0))}
+                  </td>
+                  <td className={`px-3 py-2 text-right ${signColor(byBase.reduce((s, r) => s + r.pricePnlUsd, 0))}`}>
+                    {usd(byBase.reduce((s, r) => s + r.pricePnlUsd, 0))}
+                  </td>
+                  <td className={`px-3 py-2 text-right ${signColor(byBase.reduce((s, r) => s + r.realizedUsd, 0))}`}>
+                    {usd(byBase.reduce((s, r) => s + r.realizedUsd, 0))}
+                  </td>
+                  <td className={`px-3 py-2 text-right ${signColor(byBase.reduce((s, r) => s + r.openUnrealizedUsd, 0))}`}>
+                    {byBase.reduce((s, r) => s + r.openCount, 0)} · {usd(byBase.reduce((s, r) => s + r.openUnrealizedUsd, 0))}
+                  </td>
+                  <td className="px-3 py-2 text-right text-[var(--muted)]">—</td>
+                </tr>
+                {byBase.map((r) => (
+                  <tr key={r.base} className="border-t border-[var(--border)] bg-[var(--surface)]/50">
+                    <td className="px-3 py-2 font-semibold">
+                      {r.base}{" "}
+                      {r.kinds.map((k) => (
+                        <KindBadge key={k} kind={k} />
+                      ))}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      {r.roundTrips}{" "}
+                      <span className="text-xs text-[var(--muted)]">({r.wins}W)</span>
+                    </td>
+                    <td className={`px-3 py-2 text-right ${signColor(r.fundingUsd)}`}>
+                      {usd(r.fundingUsd)}
+                    </td>
+                    <td className="px-3 py-2 text-right text-rose-400">-{usd(r.feesUsd)}</td>
+                    <td className={`px-3 py-2 text-right ${signColor(r.pricePnlUsd)}`}>
+                      {usd(r.pricePnlUsd)}
+                    </td>
+                    <td className={`px-3 py-2 text-right font-semibold ${signColor(r.realizedUsd)}`}>
+                      {usd(r.realizedUsd)}
+                    </td>
+                    <td className={`px-3 py-2 text-right ${signColor(r.openUnrealizedUsd)}`}>
+                      {r.openCount > 0 ? `${r.openCount} · ${usd(r.openUnrealizedUsd)}` : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right text-[var(--muted)]">
+                      {r.roundTrips > 0 ? hold(r.avgHoldHours) : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* closed positions with cost split */}
+      <section className="mb-8">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-[var(--muted)]">
+          Closed positions ({closed.length})
+        </h2>
+        {closed.length === 0 ? (
+          <p className="rounded-xl border border-[var(--border)] bg-[var(--surface)]/60 p-5 text-sm text-[var(--muted)]">
+            Nothing closed yet.
+          </p>
+        ) : (
+          <div className="max-h-[28rem] overflow-auto rounded-xl border border-[var(--border)]">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-[var(--surface-2)] text-left text-xs uppercase tracking-wide text-[var(--muted)]">
+                <tr>
+                  <th className="px-3 py-2">Asset</th>
+                  <th className="px-3 py-2">Structure</th>
+                  <th className="px-3 py-2 text-right">Notional/leg</th>
+                  <th className="px-3 py-2 text-right">Held</th>
+                  <th className="px-3 py-2 text-right">Funding</th>
+                  <th className="px-3 py-2 text-right">Fees</th>
+                  <th className="px-3 py-2 text-right">Price PnL</th>
+                  <th className="px-3 py-2 text-right">Net</th>
+                  <th className="px-3 py-2">Close reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {closed.map((p) => (
+                  <tr key={p.id} className="border-t border-[var(--border)] bg-[var(--surface)]/50">
+                    <td className="px-3 py-1.5 font-semibold">
+                      {p.base} <KindBadge kind={p.kind} />
+                    </td>
+                    <td className="px-3 py-1.5 text-xs text-[var(--muted)]">
+                      {legLabel(p.legs[1])} / {legLabel(p.legs[0])}
+                    </td>
+                    <td className="px-3 py-1.5 text-right">{usd(p.notionalUsd)}</td>
+                    <td className="px-3 py-1.5 text-right text-[var(--muted)]">
+                      {hold(positionHoldHours(p))}
+                    </td>
+                    <td className={`px-3 py-1.5 text-right ${signColor(p.fundingUsd)}`}>
+                      {usd(p.fundingUsd)}
+                    </td>
+                    <td className="px-3 py-1.5 text-right text-rose-400">
+                      -{usd(positionFeesUsd(p))}
+                    </td>
+                    <td className={`px-3 py-1.5 text-right ${signColor(positionPricePnlUsd(p))}`}>
+                      {usd(positionPricePnlUsd(p))}
+                    </td>
+                    <td className={`px-3 py-1.5 text-right font-semibold ${signColor(p.realizedPnlUsd)}`}>
+                      {usd(p.realizedPnlUsd)}
+                    </td>
+                    <td className="max-w-56 truncate px-3 py-1.5 text-xs text-[var(--muted)]">
+                      {p.closeReason}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* recent fills */}
+      <section className="mb-8">
         <div>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-[var(--muted)]">
             Recent fills
