@@ -63,6 +63,7 @@ export default function BotDashboard() {
   const [closed, setClosed] = useState<Position[]>([]);
   const [byBase, setByBase] = useState<BaseBreakdown[]>([]);
   const [trades, setTrades] = useState<Trade[]>([]);
+  const [coinFilter, setCoinFilter] = useState<string>("all");
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [cfgDraft, setCfgDraft] = useState<Record<string, string>>({});
@@ -133,6 +134,18 @@ export default function BotDashboard() {
 
   const cfg = state?.config;
   const unrealized = open.reduce((s, p) => s + (p.unrealizedPnlUsd ?? 0), 0);
+
+  // Closed-positions coin filter (falls back to "all" if the coin vanished,
+  // e.g. after the data dir was reset).
+  const closedCoins = [...new Set(closed.map((p) => p.base))].sort();
+  const activeFilter = coinFilter !== "all" && !closedCoins.includes(coinFilter) ? "all" : coinFilter;
+  const closedShown = activeFilter === "all" ? closed : closed.filter((p) => p.base === activeFilter);
+  const shownTotals = {
+    funding: closedShown.reduce((s, p) => s + p.fundingUsd, 0),
+    fees: closedShown.reduce((s, p) => s + positionFeesUsd(p), 0),
+    price: closedShown.reduce((s, p) => s + positionPricePnlUsd(p), 0),
+    net: closedShown.reduce((s, p) => s + (p.realizedPnlUsd ?? 0), 0),
+  };
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-10">
@@ -426,7 +439,11 @@ export default function BotDashboard() {
                 </tr>
               </thead>
               <tbody>
-                <tr className="border-t border-[var(--border)] bg-[var(--surface-2)]/40 font-semibold">
+                <tr
+                  onClick={() => setCoinFilter("all")}
+                  title="Show all coins in the closed-positions table"
+                  className="cursor-pointer border-t border-[var(--border)] bg-[var(--surface-2)]/40 font-semibold hover:bg-[var(--surface-2)]/70"
+                >
                   <td className="px-3 py-2">All coins</td>
                   <td className="px-3 py-2 text-right">
                     {byBase.reduce((s, r) => s + r.roundTrips, 0)}{" "}
@@ -452,7 +469,14 @@ export default function BotDashboard() {
                   <td className="px-3 py-2 text-right text-[var(--muted)]">—</td>
                 </tr>
                 {byBase.map((r) => (
-                  <tr key={r.base} className="border-t border-[var(--border)] bg-[var(--surface)]/50">
+                  <tr
+                    key={r.base}
+                    onClick={() => setCoinFilter(r.base)}
+                    title={`Show only ${r.base} in the closed-positions table`}
+                    className={`cursor-pointer border-t border-[var(--border)] hover:bg-[var(--surface-2)]/50 ${
+                      activeFilter === r.base ? "bg-[var(--accent)]/10" : "bg-[var(--surface)]/50"
+                    }`}
+                  >
                     <td className="px-3 py-2 font-semibold">
                       {r.base}{" "}
                       {r.kinds.map((k) => (
@@ -489,10 +513,34 @@ export default function BotDashboard() {
 
       {/* closed positions with cost split */}
       <section className="mb-8">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-[var(--muted)]">
-          Closed positions ({closed.length})
-        </h2>
-        {closed.length === 0 ? (
+        <div className="mb-3 flex flex-wrap items-center gap-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-[var(--muted)]">
+            Closed positions ({closedShown.length})
+          </h2>
+          {closedCoins.length > 0 && (
+            <select
+              value={activeFilter}
+              onChange={(e) => setCoinFilter(e.target.value)}
+              className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-2 py-1 text-xs text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
+            >
+              <option value="all">All coins ({closed.length})</option>
+              {closedCoins.map((c) => (
+                <option key={c} value={c}>
+                  {c} ({closed.filter((p) => p.base === c).length})
+                </option>
+              ))}
+            </select>
+          )}
+          {closedShown.length > 0 && (
+            <span className="text-xs text-[var(--muted)]">
+              funding <span className={signColor(shownTotals.funding)}>{usd(shownTotals.funding)}</span>
+              {" · "}fees <span className="text-rose-400">-{usd(shownTotals.fees)}</span>
+              {" · "}price <span className={signColor(shownTotals.price)}>{usd(shownTotals.price)}</span>
+              {" · "}net <span className={`font-semibold ${signColor(shownTotals.net)}`}>{usd(shownTotals.net)}</span>
+            </span>
+          )}
+        </div>
+        {closedShown.length === 0 ? (
           <p className="rounded-xl border border-[var(--border)] bg-[var(--surface)]/60 p-5 text-sm text-[var(--muted)]">
             Nothing closed yet.
           </p>
@@ -513,7 +561,7 @@ export default function BotDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {closed.map((p) => (
+                {closedShown.map((p) => (
                   <tr key={p.id} className="border-t border-[var(--border)] bg-[var(--surface)]/50">
                     <td className="px-3 py-1.5 font-semibold">
                       {p.base} <KindBadge kind={p.kind} />
