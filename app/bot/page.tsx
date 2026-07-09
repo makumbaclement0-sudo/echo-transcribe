@@ -25,7 +25,7 @@ function usd(v: number | undefined | null): string {
 
 function signColor(v: number | undefined | null): string {
   if (v === undefined || v === null || v === 0) return "";
-  return v > 0 ? "text-emerald-400" : "text-rose-400";
+  return v > 0 ? "text-[#6ee7b7]" : "text-[#ef476f]";
 }
 
 function age(iso: string): string {
@@ -42,8 +42,8 @@ function KindBadge({ kind }: { kind: string }) {
   const cross = kind === "cross-exchange";
   return (
     <span
-      className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-        cross ? "bg-sky-500/15 text-sky-300" : "bg-amber-500/15 text-amber-300"
+      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+        cross ? "bg-[#38bdf8]/15 text-[#38bdf8]" : "bg-[#ffd166]/15 text-[#ffd166]"
       }`}
     >
       {cross ? "cross" : "carry"}
@@ -157,7 +157,9 @@ export default function BotDashboard() {
           </svg>
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-semibold tracking-tight">Funding-Rate Arbitrage Bot</h1>
+          <h1 className="sm-display text-3xl tracking-tight">
+            Funding-Rate <span className="italic text-[#ffd166]">Arbitrage</span> Bot
+          </h1>
           <p className="text-sm text-[var(--muted)]">
             Binance · Bybit · OKX — cross-exchange & cash-and-carry
           </p>
@@ -168,7 +170,7 @@ export default function BotDashboard() {
       </header>
 
       {/* status bar */}
-      <section className="mb-6 rounded-xl border border-[var(--border)] bg-[var(--surface)]/60 p-4">
+      <section className="sm-card sm-violet mb-6 p-4">
         {!loaded ? (
           <p className="text-sm text-[var(--muted)]">Loading…</p>
         ) : !state ? (
@@ -180,22 +182,22 @@ export default function BotDashboard() {
           <>
             <div className="mb-4 flex flex-wrap items-center gap-2">
               <span
-                className={`rounded-md px-2 py-0.5 text-xs font-bold uppercase ${
-                  state.paper ? "bg-emerald-500/15 text-emerald-300" : "bg-rose-500/20 text-rose-300"
+                className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${
+                  state.paper ? "bg-[#6ee7b7]/15 text-[#6ee7b7]" : "bg-[#ef476f]/20 text-[#ef476f]"
                 }`}
               >
                 {state.paper ? "Paper" : "LIVE"}
               </span>
               <span
-                className={`rounded-md px-2 py-0.5 text-xs font-semibold ${
-                  engineAlive ? "bg-emerald-500/15 text-emerald-300" : "bg-rose-500/15 text-rose-300"
+                className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                  engineAlive ? "bg-[#6ee7b7]/15 text-[#6ee7b7]" : "bg-[#ef476f]/15 text-[#ef476f]"
                 }`}
               >
                 engine {engineAlive ? "alive" : "not running"}
               </span>
               <span
-                className={`rounded-md px-2 py-0.5 text-xs font-semibold ${
-                  state.running ? "bg-sky-500/15 text-sky-300" : "bg-amber-500/15 text-amber-300"
+                className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                  state.running ? "bg-[#38bdf8]/15 text-[#38bdf8]" : "bg-[#ffd166]/15 text-[#ffd166]"
                 }`}
               >
                 {state.running ? "opens enabled" : "opens halted"}
@@ -203,10 +205,10 @@ export default function BotDashboard() {
               {(["binance", "bybit", "okx"] as const).map((ex) => (
                 <span
                   key={ex}
-                  className={`rounded-md px-2 py-0.5 text-xs ${
+                  className={`rounded-full px-2.5 py-0.5 text-xs ${
                     state.exchangesOk[ex]
-                      ? "bg-[var(--surface-2)] text-[var(--muted)]"
-                      : "bg-rose-500/10 text-rose-400/80 line-through"
+                      ? "bg-[#a78bfa]/12 text-[#cbbdf5]"
+                      : "bg-[#ef476f]/10 text-[#ef476f]/80 line-through"
                   }`}
                 >
                   {ex}
@@ -219,16 +221,16 @@ export default function BotDashboard() {
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
               {[
-                ["Equity", usd(state.equityUsd), ""],
-                ["Cash", usd(state.cashUsd), ""],
-                ["Unrealized PnL", usd(unrealized), signColor(unrealized)],
-                ["Realized PnL", usd(state.realizedPnlUsd), signColor(state.realizedPnlUsd)],
-                ["Funding collected", usd(state.totalFundingUsd), signColor(state.totalFundingUsd)],
-                ["Exposure", usd(state.totalExposureUsd), ""],
-              ].map(([label, value, color]) => (
-                <div key={label as string} className="rounded-lg bg-[var(--surface-2)]/60 px-3 py-2">
+                ["Equity", usd(state.equityUsd), "", "sm-violet"],
+                ["Cash", usd(state.cashUsd), "", "sm-indigo"],
+                ["Unrealized PnL", usd(unrealized), signColor(unrealized), "sm-pink"],
+                ["Realized PnL", usd(state.realizedPnlUsd), signColor(state.realizedPnlUsd), "sm-green"],
+                ["Funding collected", usd(state.totalFundingUsd), signColor(state.totalFundingUsd), "sm-warm"],
+                ["Exposure", usd(state.totalExposureUsd), "", "sm-pink"],
+              ].map(([label, value, color, hue]) => (
+                <div key={label as string} className={`sm-card ${hue} px-3 py-2.5`}>
                   <p className="text-[11px] uppercase tracking-wide text-[var(--muted)]">{label}</p>
-                  <p className={`text-base font-semibold ${color}`}>{value}</p>
+                  <p className={`sm-display text-2xl ${color}`}>{value}</p>
                 </div>
               ))}
             </div>
@@ -242,19 +244,19 @@ export default function BotDashboard() {
       </section>
 
       {/* controls */}
-      <section className="mb-8 flex flex-wrap items-end gap-4 rounded-xl border border-[var(--border)] bg-[var(--surface)]/60 p-4">
+      <section className="sm-card sm-indigo mb-8 flex flex-wrap items-end gap-4 p-4">
         <div className="flex gap-2">
           <button
             onClick={() => control({ action: "start" })}
             disabled={busy || !engineAlive}
-            className="rounded-lg bg-emerald-600/80 px-4 py-2 text-sm font-semibold hover:bg-emerald-600 disabled:opacity-40"
+            className="sm-pill bg-[#6ee7b7] px-5 py-2 text-sm"
           >
             Start
           </button>
           <button
             onClick={() => control({ action: "stop" })}
             disabled={busy || !engineAlive}
-            className="rounded-lg bg-amber-600/80 px-4 py-2 text-sm font-semibold hover:bg-amber-600 disabled:opacity-40"
+            className="sm-pill bg-[#ffd166] px-5 py-2 text-sm"
           >
             Stop opens
           </button>
@@ -267,7 +269,7 @@ export default function BotDashboard() {
               }
             }}
             disabled={busy || !engineAlive || open.length === 0}
-            className="rounded-lg bg-rose-600/80 px-4 py-2 text-sm font-semibold hover:bg-rose-600 disabled:opacity-40"
+            className="sm-pill bg-[#ef476f] px-5 py-2 text-sm"
           >
             Kill switch
           </button>
@@ -295,7 +297,7 @@ export default function BotDashboard() {
           <button
             onClick={submitConfig}
             disabled={busy || !engineAlive}
-            className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 font-semibold hover:border-[var(--accent)]/50 disabled:opacity-40"
+            className="sm-pill bg-[#a78bfa] px-4 py-2"
           >
             Apply
           </button>
@@ -312,7 +314,7 @@ export default function BotDashboard() {
             No open positions.
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
+          <div className="sm-card overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-[var(--surface-2)]/70 text-left text-xs uppercase tracking-wide text-[var(--muted)]">
                 <tr>
@@ -375,7 +377,7 @@ export default function BotDashboard() {
             No opportunities yet — waiting for the engine&apos;s first scan.
           </p>
         ) : (
-          <div className="max-h-[28rem] overflow-auto rounded-xl border border-[var(--border)]">
+          <div className="sm-card max-h-[28rem] overflow-auto">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-[var(--surface-2)] text-left text-xs uppercase tracking-wide text-[var(--muted)]">
                 <tr>
@@ -424,7 +426,7 @@ export default function BotDashboard() {
             No positions yet.
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
+          <div className="sm-card overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-[var(--surface-2)]/70 text-left text-xs uppercase tracking-wide text-[var(--muted)]">
                 <tr>
@@ -545,7 +547,7 @@ export default function BotDashboard() {
             Nothing closed yet.
           </p>
         ) : (
-          <div className="max-h-[28rem] overflow-auto rounded-xl border border-[var(--border)]">
+          <div className="sm-card max-h-[28rem] overflow-auto">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-[var(--surface-2)] text-left text-xs uppercase tracking-wide text-[var(--muted)]">
                 <tr>

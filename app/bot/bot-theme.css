@@ -1,0 +1,105 @@
+/* "Spontaneity Machine" theme for the bot dashboard.
+   Palette extracted from the user's design reference:
+   bg #0d0b12 · cream #fbf9f5 · accents #ffd166 #ff8a5c #f472b6 #a78bfa
+   #6ee7b7 #ef476f #38bdf8 · gradient cards 160deg tinted-dark -> #0d0b12.
+   Scoped under .bot-theme; it also re-points the app's CSS variables so the
+   existing var()-based utility classes re-skin without markup churn. */
+
+.bot-theme {
+  --background: #0d0b12;
+  --surface: #161119;
+  --surface-2: rgba(255, 255, 255, 0.07);
+  --border: rgba(255, 255, 255, 0.1);
+  --foreground: #fbf9f5;
+  --muted: #a89fb3;
+  --accent: #a78bfa;
+  --accent-2: #ffd166;
+
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 100vh;
+  background: #0d0b12;
+  color: var(--foreground);
+  font-family: var(--font-bricolage), sans-serif;
+}
+
+.bot-theme > main {
+  position: relative;
+  z-index: 1;
+}
+
+/* soft colorful glows behind everything */
+.bot-blob {
+  position: fixed;
+  z-index: 0;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.16;
+  pointer-events: none;
+}
+.bot-blob-a {
+  top: -120px;
+  right: -80px;
+  width: 480px;
+  height: 480px;
+  background: #a78bfa;
+}
+.bot-blob-b {
+  bottom: -140px;
+  left: -100px;
+  width: 420px;
+  height: 420px;
+  background: #ff8a5c;
+}
+
+/* display type (Instrument Serif) */
+.sm-display {
+  font-family: var(--font-instrument), serif;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+/* gradient cards, straight from the reference's 160deg tinted darks */
+.sm-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.25rem;
+  background: linear-gradient(160deg, #181425, #0d0b12 60%);
+  transition: background 900ms ease;
+}
+.sm-warm {
+  background: linear-gradient(160deg, #1f1610, #0d0b12 60%);
+}
+.sm-pink {
+  background: linear-gradient(160deg, #1f1119, #0d0b12 60%);
+}
+.sm-violet {
+  background: linear-gradient(160deg, #1a1220, #0d0b12 60%);
+}
+.sm-indigo {
+  background: linear-gradient(160deg, #181425, #0d0b12 60%);
+}
+.sm-green {
+  background: linear-gradient(160deg, #0f1a16, #0d0b12 60%);
+}
+
+/* springy candy pills (dark text for contrast on bright fills) */
+.sm-pill {
+  border-radius: 999px;
+  color: #0d0b12;
+  font-weight: 700;
+  transition:
+    transform 150ms ease,
+    filter 150ms ease;
+}
+.sm-pill:hover:not(:disabled) {
+  transform: translateY(-1px) scale(1.03);
+  filter: brightness(1.06);
+}
+.sm-pill:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+.sm-pill:disabled {
+  opacity: 0.35;
+}
