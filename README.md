@@ -101,3 +101,83 @@ data/                      Uploads + job JSON (gitignored)
   Claude for summarization.
 - To use a bigger/more accurate Whisper model, set `WHISPER_MODEL=small` (or
   `medium`) in `.env.local`.
+
+---
+
+# Funding-Rate Arbitrage Bot
+
+This repo also contains an autonomous funding-rate arbitrage bot
+(à la arbitragescanner.io, but it trades): it scans perpetual funding rates on
+**Binance, Bybit and OKX**, and opens/closes delta-neutral positions when the
+net expected yield clears your thresholds.
+
+Two structures are traded, whichever scores higher:
+
+- **Cross-exchange**: short the perp on the exchange where funding is high,
+  long the same perp where it's low/negative — collect the funding spread.
+- **Cash-and-carry**: buy spot, short the perp on the same exchange — collect
+  positive funding.
+
+Scoring nets out taker fees (entry + exit, both legs), a slippage allowance,
+and the entry price basis, all amortized over `HOLD_HORIZON_HOURS`, so the
+displayed **net APR** is what a position is actually expected to earn.
+
+## Running it
+
+```bash
+npm install
+npm run bot      # engine (paper mode — needs NO API keys)
+npm run dev      # dashboard at http://localhost:3000/bot
+```
+
+The engine and the dashboard talk through files under `data/bot/` — no
+database. The dashboard shows the live scanner table, open positions with
+funding/PnL, trade history, and has start/stop, per-position close, a kill
+switch, and editable risk limits.
+
+> Single-process alternative: set `BOT_AUTOSTART=true` and the engine runs
+> inside the web server itself — one `next dev`/`next start` does everything.
+
+## Run it 24/7 on Windows (auto-start at logon)
+
+One-time setup, same pattern as Echo's `serve.ps1` task: in your bot checkout,
+double-click **`install-bot-autostart.cmd`**. It registers a "FundingBot"
+scheduled task that runs `bot-serve.ps1` hidden at every logon — production
+build, site + embedded engine on port **3010**, auto-restart on crashes — and
+starts it immediately. Dashboard: `http://localhost:3010/bot` (or
+`http://<PC-IP>:3010/bot` from your phone on the same Wi-Fi). Logs live in
+`data\`. Undo with `schtasks /Delete /TN "FundingBot" /F`.
+
+## Paper vs live
+
+The bot **always starts in paper mode**: it uses real market data but
+simulates fills (with slippage) and tracks a virtual balance
+(`PAPER_STARTING_BALANCE_USD`, default $10k).
+
+To trade real money you must set **all** of the following in `.env.local` and
+restart the engine (the dashboard can never switch you to live):
+
+```
+LIVE_TRADING=true
+BINANCE_API_KEY=... BINANCE_API_SECRET=...
+BYBIT_API_KEY=...   BYBIT_API_SECRET=...
+OKX_API_KEY=...     OKX_API_SECRET=...   OKX_API_PASSWORD=...
+```
+
+Only exchanges with keys are traded live. Use keys with **trade permission
+only — never withdrawal**. See `.env.example` for every threshold and risk
+limit (min net APR, exposure caps, divergence stop, etc.).
+
+Live-execution safety built in: legs are fired concurrently and if one leg
+fails the filled leg is **immediately unwound** so you're never one-sided;
+closes are reduce-only; a failed close is retried every scan; exposure caps
+and a price-divergence stop are enforced by the engine.
+
+## Notes & caveats
+
+- Some venues geo-block their APIs (e.g. Binance/Bybit from US-hosted
+  servers). The bot detects this at startup and keeps running with the
+  exchanges that are reachable.
+- Funding-rate arbitrage is **not risk-free**: funding can flip, fills can
+  slip, and cross-exchange basis can move against you. Paper-trade first,
+  start small, and treat the default thresholds as a starting point.

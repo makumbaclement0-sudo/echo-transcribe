@@ -6,13 +6,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "bot": "tsx scripts/bot.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.2",
+    "ccxt": "^4.5.64",
     "next": "16.2.9",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "tsx": "^4.23.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

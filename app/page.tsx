@@ -61,12 +61,18 @@ export default function Home() {
             <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3" />
           </svg>
         </div>
-        <div>
+        <div className="min-w-0 flex-1">
           <h1 className="text-xl font-semibold tracking-tight">Echo</h1>
           <p className="text-sm text-[var(--muted)]">
             Local transcription · AI summary · action items
           </p>
         </div>
+        <Link
+          href="/bot"
+          className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-[var(--muted)] transition-colors hover:border-[var(--accent)]/40 hover:text-[var(--foreground)]"
+        >
+          Arbitrage bot →
+        </Link>
       </header>
 
       <Uploader onUploaded={refresh} />
