@@ -186,6 +186,25 @@ export async function runEngine(opts: EngineOptions = {}): Promise<void> {
       await store.saveOpportunities(result.opportunities);
       for (const p of pairs) state.exchangesOk[p.id] = p.ok && !result.errors[p.id];
 
+      // Compact feed for the landing-page ticker strip.
+      const tickerRates: { base: string; rate: number; exchange: string }[] = [];
+      for (const base of ["BTC", "ETH", "SOL"]) {
+        const snap = EXCHANGE_IDS.map((ex) =>
+          result.snapshots.find((s) => s.base === base && s.exchange === ex)
+        ).find(Boolean);
+        if (snap) tickerRates.push({ base, rate: snap.fundingRate, exchange: snap.exchange });
+      }
+      const best = result.opportunities[0];
+      await store
+        .saveTicker({
+          rates: tickerRates,
+          bestId: best?.id ?? null,
+          bestNetApr: best?.netApr ?? null,
+          paper: executor.paper,
+          updatedAt: new Date().toISOString(),
+        })
+        .catch(() => {});
+
       const marks = snapshotIndex(result.snapshots);
       const now = new Date();
       const positions = (await store.listOpenPositions()).filter(

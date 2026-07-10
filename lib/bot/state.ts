@@ -113,6 +113,21 @@ export async function readRecentTrades(limit = 200): Promise<Trade[]> {
   }
 }
 
+// ---- ticker (landing-page strip) ----
+
+export interface TickerData {
+  rates: { base: string; rate: number; exchange: string }[]; // per-interval funding
+  bestId: string | null;
+  bestNetApr: number | null;
+  paper: boolean;
+  updatedAt: string;
+}
+
+const TICKER_FILE = path.join(BOT_DIR, "ticker.json");
+
+export const saveTicker = (t: TickerData) => writeJsonAtomic(TICKER_FILE, t);
+export const readTicker = () => readJson<TickerData>(TICKER_FILE);
+
 // ---- control channel (dashboard -> engine) ----
 
 export const readControl = () => readJson<ControlFile>(CONTROL_FILE);

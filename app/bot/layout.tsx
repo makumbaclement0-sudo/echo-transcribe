@@ -1,31 +1,29 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, Instrument_Serif } from "next/font/google";
+import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
 import "./bot-theme.css";
 
-// "Spontaneity Machine" theme, scoped to /bot — Echo's pages are untouched.
-const bricolage = Bricolage_Grotesque({
+// DELTA/8 theme (from the user's landing design), scoped to /bot —
+// Echo's pages are untouched.
+const plexMono = IBM_Plex_Mono({
   subsets: ["latin"],
-  variable: "--font-bricolage",
+  weight: ["400", "500", "600"],
+  variable: "--font-plex-mono",
 });
 
-const instrument = Instrument_Serif({
+const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
-  weight: "400",
-  style: ["normal", "italic"],
-  variable: "--font-instrument",
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-space-grotesk",
 });
 
 export const metadata: Metadata = {
-  title: "Funding-Rate Arbitrage Bot",
-  description: "Autonomous funding-rate arbitrage across Binance, Bybit and OKX.",
+  title: "DELTA/8 — Funding-Rate Arbitrage",
+  description:
+    "Long spot, short the perp, collect the funding delta. Paper-first funding-rate arbitrage across Binance, Bybit and OKX.",
 };
 
 export default function BotLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className={`bot-theme ${bricolage.variable} ${instrument.variable}`}>
-      <div className="bot-blob bot-blob-a" aria-hidden />
-      <div className="bot-blob bot-blob-b" aria-hidden />
-      {children}
-    </div>
+    <div className={`bot-theme ${plexMono.variable} ${spaceGrotesk.variable}`}>{children}</div>
   );
 }

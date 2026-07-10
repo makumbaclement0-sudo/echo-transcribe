@@ -1,105 +1,236 @@
-/* "Spontaneity Machine" theme for the bot dashboard.
-   Palette extracted from the user's design reference:
-   bg #0d0b12 · cream #fbf9f5 · accents #ffd166 #ff8a5c #f472b6 #a78bfa
-   #6ee7b7 #ef476f #38bdf8 · gradient cards 160deg tinted-dark -> #0d0b12.
-   Scoped under .bot-theme; it also re-points the app's CSS variables so the
-   existing var()-based utility classes re-skin without markup churn. */
+/* DELTA/8 theme — trading-terminal brutalist, from the user's landing design.
+   bg #06080a · ink #eef1ee · lime #b6ff3c · coral #ff6a4d · blue #5a8cff ·
+   muted greens #9aa39d/#6f7a73/#5c6b62/#3a423d · hairline borders
+   rgba(238,241,238,0.08-0.12) · 2px corner radii · IBM Plex Mono + Space
+   Grotesk. Scoped under .bot-theme; re-points the app's CSS variables so
+   var()-based utility classes re-skin automatically. */
 
 .bot-theme {
-  --background: #0d0b12;
-  --surface: #161119;
-  --surface-2: rgba(255, 255, 255, 0.07);
-  --border: rgba(255, 255, 255, 0.1);
-  --foreground: #fbf9f5;
-  --muted: #a89fb3;
-  --accent: #a78bfa;
-  --accent-2: #ffd166;
+  --background: #06080a;
+  --surface: #0a0d0f;
+  --surface-2: rgba(238, 241, 238, 0.05);
+  --border: rgba(238, 241, 238, 0.1);
+  --foreground: #eef1ee;
+  --muted: #9aa39d;
+  --accent: #b6ff3c;
+  --accent-2: #ff6a4d;
 
   position: relative;
   display: flex;
   flex: 1;
   flex-direction: column;
   min-height: 100vh;
-  background: #0d0b12;
+  background: #06080a;
   color: var(--foreground);
-  font-family: var(--font-bricolage), sans-serif;
+  font-family: var(--font-plex-mono), monospace;
 }
 
-.bot-theme > main {
-  position: relative;
-  z-index: 1;
+.bot-theme ::selection {
+  background: #b6ff3c;
+  color: #06080a;
 }
 
-/* soft colorful glows behind everything */
-.bot-blob {
-  position: fixed;
-  z-index: 0;
+/* display type (Space Grotesk, tight tracking) */
+.d8-display {
+  font-family: var(--font-space-grotesk), sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* lime uppercase micro-label */
+.d8-label {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #b6ff3c;
+}
+
+/* sharp hairline card */
+.d8-card {
+  border: 1px solid rgba(238, 241, 238, 0.1);
+  border-radius: 2px;
+  background: #06080a;
+}
+
+/* buttons: rectangular, 2px radius, Space Grotesk */
+.d8-btn {
+  border-radius: 2px;
+  background: #b6ff3c;
+  color: #06080a;
+  font-family: var(--font-space-grotesk), sans-serif;
+  font-weight: 600;
+  transition:
+    filter 150ms ease,
+    transform 150ms ease;
+}
+.d8-btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+.d8-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+.d8-btn:disabled {
+  opacity: 0.35;
+}
+.d8-btn-danger {
+  background: #ff6a4d;
+}
+.d8-btn-ghost {
+  background: transparent;
+  border: 1px solid rgba(238, 241, 238, 0.25);
+  color: #eef1ee;
+}
+.d8-btn-ghost:hover:not(:disabled) {
+  border-color: #b6ff3c;
+  color: #b6ff3c;
+  filter: none;
+}
+
+/* small mono tag */
+.d8-chip {
+  border-radius: 2px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+}
+
+/* ---- keyframes from the design ---- */
+@keyframes drift1 {
+  0% {
+    transform: translate(-10%, -10%) scale(1);
+  }
+  50% {
+    transform: translate(6%, 8%) scale(1.2);
+  }
+  100% {
+    transform: translate(-10%, -10%) scale(1);
+  }
+}
+@keyframes drift2 {
+  0% {
+    transform: translate(8%, 4%) scale(1.1);
+  }
+  50% {
+    transform: translate(-8%, -10%) scale(1);
+  }
+  100% {
+    transform: translate(8%, 4%) scale(1.1);
+  }
+}
+@keyframes drift3 {
+  0% {
+    transform: translate(0%, 6%) scale(1);
+  }
+  50% {
+    transform: translate(-6%, -4%) scale(1.15);
+  }
+  100% {
+    transform: translate(0%, 6%) scale(1);
+  }
+}
+@keyframes gridPan {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 0 88px;
+  }
+}
+@keyframes riseIn {
+  from {
+    opacity: 0;
+    transform: translateY(0.6em);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+@keyframes softPulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.d8-pulse {
+  animation: softPulse 2.4s ease-in-out infinite;
+}
+.d8-rise {
+  display: inline-block;
+  opacity: 0;
+  animation: riseIn 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* hero backdrop: drifting glows + masked panning grid */
+.d8-glow {
+  position: absolute;
   border-radius: 50%;
-  filter: blur(90px);
-  opacity: 0.16;
+  filter: blur(10px);
   pointer-events: none;
 }
-.bot-blob-a {
-  top: -120px;
-  right: -80px;
-  width: 480px;
-  height: 480px;
-  background: #a78bfa;
+.d8-glow-lime {
+  width: 60vw;
+  height: 60vw;
+  left: -15%;
+  top: -10%;
+  background: radial-gradient(circle, rgba(182, 255, 60, 0.16), transparent 65%);
+  animation: drift1 26s ease-in-out infinite;
 }
-.bot-blob-b {
-  bottom: -140px;
-  left: -100px;
-  width: 420px;
-  height: 420px;
-  background: #ff8a5c;
+.d8-glow-blue {
+  width: 50vw;
+  height: 50vw;
+  right: -10%;
+  top: 10%;
+  background: radial-gradient(circle, rgba(90, 140, 255, 0.14), transparent 65%);
+  animation: drift2 32s ease-in-out infinite;
 }
-
-/* display type (Instrument Serif) */
-.sm-display {
-  font-family: var(--font-instrument), serif;
-  font-weight: 400;
-  letter-spacing: 0.01em;
+.d8-glow-coral {
+  width: 45vw;
+  height: 45vw;
+  left: 20%;
+  bottom: -20%;
+  background: radial-gradient(circle, rgba(255, 106, 77, 0.1), transparent 65%);
+  animation: drift3 22s ease-in-out infinite;
 }
-
-/* gradient cards, straight from the reference's 160deg tinted darks */
-.sm-card {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 1.25rem;
-  background: linear-gradient(160deg, #181425, #0d0b12 60%);
-  transition: background 900ms ease;
-}
-.sm-warm {
-  background: linear-gradient(160deg, #1f1610, #0d0b12 60%);
-}
-.sm-pink {
-  background: linear-gradient(160deg, #1f1119, #0d0b12 60%);
-}
-.sm-violet {
-  background: linear-gradient(160deg, #1a1220, #0d0b12 60%);
-}
-.sm-indigo {
-  background: linear-gradient(160deg, #181425, #0d0b12 60%);
-}
-.sm-green {
-  background: linear-gradient(160deg, #0f1a16, #0d0b12 60%);
+.d8-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(238, 241, 238, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(238, 241, 238, 0.05) 1px, transparent 1px);
+  background-size: 44px 44px;
+  animation: gridPan 6s linear infinite;
+  mask-image: radial-gradient(ellipse at 50% 30%, black 0%, transparent 75%);
 }
 
-/* springy candy pills (dark text for contrast on bright fills) */
-.sm-pill {
-  border-radius: 999px;
-  color: #0d0b12;
-  font-weight: 700;
+/* risk section: coral diagonal stripes */
+.d8-stripes {
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(255, 106, 77, 0.06) 0px,
+    rgba(255, 106, 77, 0.06) 2px,
+    transparent 2px,
+    transparent 22px
+  );
+}
+
+/* scroll-reveal helper */
+.d8-reveal {
+  opacity: 0;
+  transform: translateY(40px);
   transition:
-    transform 150ms ease,
-    filter 150ms ease;
+    opacity 0.9s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.sm-pill:hover:not(:disabled) {
-  transform: translateY(-1px) scale(1.03);
-  filter: brightness(1.06);
-}
-.sm-pill:active:not(:disabled) {
-  transform: translateY(0) scale(0.98);
-}
-.sm-pill:disabled {
-  opacity: 0.35;
+.d8-reveal.d8-visible {
+  opacity: 1;
+  transform: translateY(0);
 }
