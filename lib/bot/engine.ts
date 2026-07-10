@@ -252,11 +252,20 @@ export async function runEngine(opts: EngineOptions = {}): Promise<void> {
 
       // ---- opens ----
       if (state.running && !shuttingDown) {
+        const cooldownLookbackHours = Math.max(
+          config.reentryCooldownHours,
+          config.reentryCooldownAfterStopHours
+        );
+        const cutoff = Date.now() - cooldownLookbackHours * 3_600_000;
+        const recentCloses = (await store.listClosedPositions(200)).filter(
+          (p) => p.paper === executor.paper && p.closedAt && new Date(p.closedAt).getTime() >= cutoff
+        );
         const decision = decideOpen(
           executable(result.opportunities),
           open,
           config,
-          executor.paper ? state.cashUsd : null
+          executor.paper ? state.cashUsd : null,
+          recentCloses
         );
         if (decision) {
           const { opportunity, notionalUsd } = decision;

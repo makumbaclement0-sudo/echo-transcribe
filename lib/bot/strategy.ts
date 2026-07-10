@@ -62,10 +62,11 @@ export function decideOpen(
   opportunities: Opportunity[],
   positions: Position[],
   cfg: BotConfig,
-  paperCashUsd: number | null
+  paperCashUsd: number | null,
+  recentCloses: Position[]
 ): OpenDecision | null {
   for (const opp of opportunities) {
-    if (canOpen(cfg, positions, opp) !== null) continue;
+    if (canOpen(cfg, positions, opp, recentCloses) !== null) continue;
     const notionalUsd = sizePosition(cfg, positions, paperCashUsd);
     if (notionalUsd <= 0) return null; // no headroom for anything
     return { opportunity: opp, notionalUsd };

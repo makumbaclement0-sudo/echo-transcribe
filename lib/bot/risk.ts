@@ -22,10 +22,47 @@ export function sizePosition(
   return notional >= MIN_VIABLE_NOTIONAL_USD ? notional : 0;
 }
 
-export function canOpen(cfg: BotConfig, positions: Position[], opp: Opportunity): string | null {
+const HOURS_PER_MS = 1 / 3_600_000;
+
+/**
+ * How many hours ago `positions` last closed a position in this base coin, and
+ * under what reason — used to enforce a re-entry cooldown. Extreme funding
+ * APRs are usually a symptom of a price squeeze between venues, which is
+ * exactly what trips the divergence stop; without a cooldown the bot
+ * re-enters the same volatile coin next scan and churns fees for no edge.
+ */
+function lastCloseFor(base: string, recentCloses: Position[]): Position | null {
+  let latest: Position | null = null;
+  for (const p of recentCloses) {
+    if (p.base !== base || !p.closedAt) continue;
+    if (!latest || p.closedAt > latest.closedAt!) latest = p;
+  }
+  return latest;
+}
+
+export function canOpen(
+  cfg: BotConfig,
+  positions: Position[],
+  opp: Opportunity,
+  recentCloses: Position[]
+): string | null {
   if (positions.length >= cfg.maxOpenPositions) return "max open positions reached";
-  if (positions.some((p) => p.opportunityId === opp.id)) return "already holding this structure";
+  if (positions.some((p) => p.base === opp.base)) return "already holding this coin";
   if (opp.netApr < cfg.minNetApr) return "below min net APR";
+  if (opp.netApr > cfg.maxEntryApr) {
+    return `entry APR implausibly high (${(opp.netApr * 100).toFixed(0)}% — likely a squeeze)`;
+  }
+  const last = lastCloseFor(opp.base, recentCloses);
+  if (last) {
+    const isStop = (last.closeReason ?? "").startsWith("price divergence");
+    const cooldownHours = isStop ? cfg.reentryCooldownAfterStopHours : cfg.reentryCooldownHours;
+    const hoursSince = (Date.now() - new Date(last.closedAt!).getTime()) * HOURS_PER_MS;
+    if (hoursSince < cooldownHours) {
+      return `re-entry cooldown (${(cooldownHours - hoursSince).toFixed(1)}h left after ${
+        isStop ? "stop-out" : "close"
+      })`;
+    }
+  }
   return null;
 }
 

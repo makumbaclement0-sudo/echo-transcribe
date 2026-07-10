@@ -27,6 +27,9 @@ export function loadConfig(): BotConfig {
     maxOpenPositions: num("MAX_OPEN_POSITIONS", 5),
     maxSlippageBps: num("MAX_SLIPPAGE_BPS", 5),
     maxEntryBasisPct: num("MAX_ENTRY_BASIS_PCT", 0.15),
+    maxEntryApr: num("MAX_ENTRY_APR", 1.5), // 150%/yr — above this is almost always a squeeze
+    reentryCooldownHours: num("REENTRY_COOLDOWN_HOURS", 6),
+    reentryCooldownAfterStopHours: num("REENTRY_COOLDOWN_AFTER_STOP_HOURS", 24),
     priceDivergenceStopPct: num("PRICE_DIVERGENCE_STOP_PCT", 3),
     // Horizon over which one-off entry/exit costs are amortized when scoring.
     // Too short makes fees dominate and nothing ever trades; funding-arb
@@ -51,6 +54,9 @@ export const RUNTIME_TUNABLE: (keyof BotConfig)[] = [
   "maxOpenPositions",
   "maxSlippageBps",
   "maxEntryBasisPct",
+  "maxEntryApr",
+  "reentryCooldownHours",
+  "reentryCooldownAfterStopHours",
   "priceDivergenceStopPct",
   "holdHorizonHours",
   "minQuoteVolumeUsd",

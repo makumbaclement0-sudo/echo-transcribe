@@ -121,6 +121,9 @@ export interface BotConfig {
   maxOpenPositions: number;
   maxSlippageBps: number; // per fill, used in cost model + live guard
   maxEntryBasisPct: number; // skip entry if adverse price basis exceeds this
+  maxEntryApr: number; // skip entries above this net APR — likely a squeeze, not durable edge
+  reentryCooldownHours: number; // after any close, don't re-open the same coin for this long
+  reentryCooldownAfterStopHours: number; // longer cooldown specifically after a divergence stop
   priceDivergenceStopPct: number; // emergency close if legs diverge this far
   holdHorizonHours: number; // amortization horizon for one-off costs
   minQuoteVolumeUsd: number; // 24h liquidity filter per market
