@@ -45,5 +45,7 @@ export interface ExecPosition {
   long: OrderResult;
   openedAt: string;
   status: "open" | "closed" | "unwound";
+  /** "sim" = simulated fills at live prices; "testnet" = real testnet orders. */
+  mode?: "sim" | "testnet";
   note?: string;
 }

@@ -36,14 +36,17 @@ export interface RiskVerdict {
  * blocked outright (kill switch handled separately), otherwise clamps size and
  * leverage down to the configured caps.
  */
-export function checkRisk(input: RiskInput): RiskVerdict {
+export function checkRisk(
+  input: RiskInput,
+  opts: { skipNetApr?: boolean } = {}
+): RiskVerdict {
   const cfg = riskConfig();
   const usd = Math.min(Math.max(input.usd, 0), cfg.maxUsdPerLeg);
   const leverage = Math.min(Math.max(input.leverage, 1), cfg.maxLeverage);
 
   if (!Number.isFinite(input.usd) || input.usd <= 0)
     return { ok: false, reason: "usd must be > 0", usd, leverage };
-  if (input.netApr < cfg.minNetApr)
+  if (!opts.skipNetApr && input.netApr < cfg.minNetApr)
     return {
       ok: false,
       reason: `net APR ${(input.netApr * 100).toFixed(2)}% below floor ${(

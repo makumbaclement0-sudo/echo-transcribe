@@ -2,37 +2,55 @@ import { binance } from "./binance";
 import { bybit } from "./bybit";
 import { okx } from "./okx";
 import { hyperliquid, hyperliquidAddress } from "./hyperliquid";
+import { simExecutors } from "./sim";
 import { checkRisk, riskConfig } from "./risk";
 import { isHalted, savePosition } from "./store";
 import type { Executor, ExecPosition, Side, Venue } from "./types";
 
-const EXECUTORS: Partial<Record<Venue, Executor>> = {
+export type ExecMode = "sim" | "testnet";
+
+/** Default is SIMULATION (fake fills at live prices). Opt into real testnet
+ *  order placement with EXEC_MODE=testnet. */
+export function execMode(): ExecMode {
+  return process.env.EXEC_MODE === "testnet" ? "testnet" : "sim";
+}
+
+const REAL: Partial<Record<Venue, Executor>> = {
   binance,
   bybit,
   okx,
   hyperliquid,
 };
+const SIM = simExecutors(REAL);
+
+function executors(): Partial<Record<Venue, Executor>> {
+  return execMode() === "testnet" ? REAL : SIM;
+}
 
 export function executorFor(venue: Venue): Executor {
-  const ex = EXECUTORS[venue];
-  if (!ex) throw new Error(`${venue} execution not wired yet (testnet CEX first)`);
+  const ex = executors()[venue];
+  if (!ex) throw new Error(`${venue} execution not wired`);
   return ex;
 }
 
 export function execStatus() {
   const cfg = riskConfig();
+  const mode = execMode();
+  const table = executors();
   return {
-    enabled: cfg.enabled,
+    mode,
+    // In sim mode there's nothing to arm — it's always ready and risk-free.
+    enabled: mode === "sim" ? true : cfg.enabled,
     limits: {
       maxUsdPerLeg: cfg.maxUsdPerLeg,
       maxLeverage: cfg.maxLeverage,
       minNetApr: cfg.minNetApr,
     },
-    venues: (Object.keys(EXECUTORS) as Venue[]).map((v) => ({
+    venues: (Object.keys(table) as Venue[]).map((v) => ({
       venue: v,
-      configured: EXECUTORS[v]!.configured(),
+      configured: table[v]!.configured(),
     })),
-    hyperliquidAddress: hyperliquidAddress(),
+    hyperliquidAddress: mode === "testnet" ? hyperliquidAddress() : null,
   };
 }
 
@@ -51,17 +69,18 @@ export interface OpenPairInput {
  * first is immediately unwound (reduceOnly) so we never sit naked-directional.
  */
 export async function openPair(input: OpenPairInput): Promise<ExecPosition> {
-  if (!riskConfig().enabled)
+  const mode = execMode();
+  // Testnet placement must be explicitly armed; simulation never needs arming.
+  if (mode === "testnet" && !riskConfig().enabled)
     throw new Error("execution disabled — set EXEC_ENABLED=true to arm");
   if (await isHalted()) throw new Error("kill switch is engaged (HALT)");
   if (input.short === input.long)
     throw new Error("short and long must be different venues");
 
-  const verdict = checkRisk({
-    usd: input.usd,
-    leverage: input.leverage,
-    netApr: input.netApr,
-  });
+  const verdict = checkRisk(
+    { usd: input.usd, leverage: input.leverage, netApr: input.netApr },
+    { skipNetApr: mode === "sim" } // demo any pair; still cap size + leverage
+  );
   if (!verdict.ok) throw new Error(`risk gate: ${verdict.reason}`);
 
   const shortEx = executorFor(input.short);
@@ -113,6 +132,7 @@ export async function openPair(input: OpenPairInput): Promise<ExecPosition> {
       },
       openedAt: new Date().toISOString(),
       status: "unwound",
+      mode,
       note: `long leg failed, short leg unwound: ${String(e)}`,
     };
     await savePosition(pos);
@@ -128,6 +148,7 @@ export async function openPair(input: OpenPairInput): Promise<ExecPosition> {
     long,
     openedAt: new Date().toISOString(),
     status: "open",
+    mode,
   };
   return savePosition(pos);
 }

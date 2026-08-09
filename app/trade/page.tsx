@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { ExecPosition, Venue } from "@/lib/exec/types";
 
 interface Status {
+  mode: "sim" | "testnet";
   enabled: boolean;
   halted: boolean;
   limits: { maxUsdPerLeg: number; maxLeverage: number; minNetApr: number };
@@ -54,9 +55,10 @@ export default function TradePage() {
       setMsg("Short and long must be different venues.");
       return;
     }
+    const kind = status?.mode === "sim" ? "SIMULATED" : "TESTNET";
     if (
       !confirm(
-        `TESTNET order:\nSHORT ${LABEL[short]} · LONG ${LABEL[long]}\n${coin} — $${usd}/leg @ ${leverage}x\n\nPlace it?`
+        `${kind} order:\nSHORT ${LABEL[short]} · LONG ${LABEL[long]}\n${coin} — $${usd}/leg @ ${leverage}x\n\nPlace it?`
       )
     )
       return;
@@ -86,7 +88,7 @@ export default function TradePage() {
     } finally {
       setBusy(false);
     }
-  }, [coin, short, long, usd, leverage, refresh]);
+  }, [coin, short, long, usd, leverage, refresh, status?.mode]);
 
   const close = useCallback(
     async (id: string) => {
@@ -133,16 +135,27 @@ export default function TradePage() {
         </Link>
       </header>
 
-      <div className="mb-6 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
-        <strong>TESTNET only.</strong> These orders hit exchange test
-        environments with fake funds. No real money moves. Keep API keys
-        trade-only (never withdrawal) and in <code>.env.local</code>.
-      </div>
+      {status?.mode === "sim" ? (
+        <div className="mb-6 rounded-lg border border-sky-500/40 bg-sky-500/10 px-4 py-3 text-sm text-sky-700 dark:text-sky-300">
+          <strong>SIMULATION.</strong> Fills are synthesized instantly at{" "}
+          <em>live</em> mark prices — no API keys, no wallet, nothing at risk.
+          The full trade flow (leg-in, unwind-on-failure, positions, history)
+          runs exactly as it would live. Set <code>EXEC_MODE=testnet</code> with
+          keys to place real testnet orders instead.
+        </div>
+      ) : (
+        <div className="mb-6 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+          <strong>TESTNET.</strong> Real orders on exchange test environments
+          with fake funds. Keep API keys trade-only (never withdrawal) and in{" "}
+          <code>.env.local</code>.
+        </div>
+      )}
 
       {status && (
         <section className="mb-6 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-          <Stat label="Execution" value={status.enabled ? "ARMED" : "disabled"}
-            className={status.enabled ? "text-emerald-600" : "text-neutral-500"} />
+          <Stat label="Mode"
+            value={status.mode === "sim" ? "SIMULATION" : status.enabled ? "TESTNET · ARMED" : "TESTNET · off"}
+            className={status.mode === "sim" ? "text-sky-600 dark:text-sky-400" : status.enabled ? "text-emerald-600" : "text-neutral-500"} />
           <Stat label="Kill switch" value={status.halted ? "HALTED" : "clear"}
             className={status.halted ? "text-red-500" : "text-neutral-500"} />
           <Stat label="Max / leg" value={`$${status.limits.maxUsdPerLeg}`} />
@@ -152,15 +165,21 @@ export default function TradePage() {
 
       {status && (
         <p className="mb-6 text-xs text-neutral-500">
-          Venues wired:{" "}
-          {status.venues.map((v) => (
-            <span key={v.venue} className="mr-3">
-              {LABEL[v.venue]}:{" "}
-              <span className={v.configured ? "text-emerald-600" : "text-red-500"}>
-                {v.configured ? "keys ok" : "no keys"}
-              </span>
-            </span>
-          ))}
+          {status.mode === "sim" ? (
+            <>Venues: all four available — no keys needed in simulation.</>
+          ) : (
+            <>
+              Venues wired:{" "}
+              {status.venues.map((v) => (
+                <span key={v.venue} className="mr-3">
+                  {LABEL[v.venue]}:{" "}
+                  <span className={v.configured ? "text-emerald-600" : "text-red-500"}>
+                    {v.configured ? "keys ok" : "no keys"}
+                  </span>
+                </span>
+              ))}
+            </>
+          )}
           {status.hyperliquidAddress && (
             <span className="block mt-1">
               Hyperliquid signs as{" "}
@@ -301,6 +320,11 @@ function TradeHistory({ positions }: { positions: ExecPosition[] }) {
                 <td className="px-3 py-2.5 text-right tabular-nums">{p.leverage}x</td>
                 <td className={`px-3 py-2.5 text-xs font-medium ${statusColor[p.status] ?? ""}`}>
                   {p.status}
+                  {p.mode && (
+                    <span className="ml-1 rounded bg-neutral-200 px-1 text-[9px] uppercase text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300">
+                      {p.mode}
+                    </span>
+                  )}
                   {p.note && (
                     <span className="block text-[10px] font-normal text-neutral-400">
                       {p.note}
