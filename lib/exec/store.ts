@@ -5,6 +5,8 @@ import type { ExecPosition } from "./types";
 const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data");
 const EXEC_DIR = path.join(DATA_DIR, "exec");
 const HALT_FILE = path.join(EXEC_DIR, "HALT");
+const AUTO_FILE = path.join(EXEC_DIR, "AUTO");
+const AUTO_LAST_FILE = path.join(EXEC_DIR, "AUTO_LAST.json");
 
 async function ensureDir() {
   await fs.mkdir(EXEC_DIR, { recursive: true });
@@ -24,6 +26,35 @@ export async function setHalt(on: boolean): Promise<void> {
   await ensureDir();
   if (on) await fs.writeFile(HALT_FILE, new Date().toISOString(), "utf8");
   else await fs.rm(HALT_FILE, { force: true });
+}
+
+/** Auto-trader on/off toggle (persists across restarts as a file). */
+export async function isAutoOn(): Promise<boolean> {
+  try {
+    await fs.access(AUTO_FILE);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function setAuto(on: boolean): Promise<void> {
+  await ensureDir();
+  if (on) await fs.writeFile(AUTO_FILE, new Date().toISOString(), "utf8");
+  else await fs.rm(AUTO_FILE, { force: true });
+}
+
+export async function getLastAuto(): Promise<unknown | null> {
+  try {
+    return JSON.parse(await fs.readFile(AUTO_LAST_FILE, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+export async function setLastAuto(v: unknown): Promise<void> {
+  await ensureDir();
+  await fs.writeFile(AUTO_LAST_FILE, JSON.stringify(v, null, 2), "utf8");
 }
 
 function posPath(id: string) {
@@ -49,9 +80,11 @@ export async function listPositions(): Promise<ExecPosition[]> {
   const files = await fs.readdir(EXEC_DIR);
   const out: ExecPosition[] = [];
   for (const f of files) {
-    if (!f.endsWith(".json")) continue;
+    if (!f.endsWith(".json") || f === "AUTO_LAST.json") continue;
     try {
-      out.push(JSON.parse(await fs.readFile(path.join(EXEC_DIR, f), "utf8")));
+      const p = JSON.parse(await fs.readFile(path.join(EXEC_DIR, f), "utf8"));
+      // Guard against any non-position json living in the same dir.
+      if (p && p.short && p.long && p.id) out.push(p);
     } catch {
       // skip corrupt
     }

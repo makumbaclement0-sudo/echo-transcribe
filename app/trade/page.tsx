@@ -12,6 +12,18 @@ interface Status {
   venues: { venue: Venue; configured: boolean }[];
   hyperliquidAddress: string | null;
   positions: ExecView[];
+  totals: { netPnlUsd: number; accruedFundingUsd: number; openCount: number; count: number };
+}
+
+interface AutoState {
+  enabled: boolean;
+  config: { intervalMin: number; maxPositions: number; usd: number; leverage: number; minNetApr: number };
+  lastRun: {
+    at: string;
+    ran: boolean;
+    reason?: string;
+    opened?: { coin: string; short: string; long: string; netApr: number };
+  } | null;
 }
 
 function money(n: number): string {
@@ -30,6 +42,7 @@ const WIRED: Venue[] = ["binance", "bybit", "okx", "hyperliquid"];
 
 export default function TradePage() {
   const [status, setStatus] = useState<Status | null>(null);
+  const [auto, setAutoState] = useState<AutoState | null>(null);
   const [coin, setCoin] = useState("BTC");
   const [short, setShort] = useState<Venue>("okx");
   const [long, setLong] = useState<Venue>("hyperliquid");
@@ -40,12 +53,44 @@ export default function TradePage() {
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch("/api/exec/status", { cache: "no-store" });
-      setStatus(await res.json());
+      const [s, a] = await Promise.all([
+        fetch("/api/exec/status", { cache: "no-store" }).then((r) => r.json()),
+        fetch("/api/exec/auto", { cache: "no-store" }).then((r) => r.json()),
+      ]);
+      setStatus(s);
+      setAutoState(a);
     } catch {
       /* ignore */
     }
   }, []);
+
+  const setAutoTrader = useCallback(
+    async (on: boolean) => {
+      await fetch("/api/exec/auto", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ on }),
+      });
+      refresh();
+    },
+    [refresh]
+  );
+
+  const runAutoOnce = useCallback(async () => {
+    setMsg("Running one auto cycle…");
+    const r = await fetch("/api/exec/auto", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ tick: true }),
+    }).then((x) => x.json());
+    const lr = r.lastRun;
+    setMsg(
+      lr?.ran
+        ? `Auto opened ${lr.opened.coin} (${lr.opened.short}/${lr.opened.long})`
+        : `Auto: ${lr?.reason ?? "no action"}`
+    );
+    refresh();
+  }, [refresh]);
 
   useEffect(() => {
     // Status is populated asynchronously after the fetch resolves.
@@ -244,10 +289,70 @@ export default function TradePage() {
         {msg && <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-300">{msg}</p>}
       </section>
 
+      {/* Auto-trader */}
+      <section className="mb-8 rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">
+              Auto-trader{" "}
+              <span className={auto?.enabled ? "text-emerald-600" : "text-neutral-400"}>
+                · {auto?.enabled ? "ON" : "off"}
+              </span>
+            </h2>
+            {auto && (
+              <p className="mt-1 text-xs text-neutral-400">
+                Every {auto.config.intervalMin}m, opens the top pair clearing{" "}
+                {(auto.config.minNetApr * 100).toFixed(1)}% net APR — up to{" "}
+                {auto.config.maxPositions} positions, ${auto.config.usd}/leg @{" "}
+                {auto.config.leverage}x.
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={runAutoOnce} disabled={busy}
+              className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800">
+              Run once
+            </button>
+            {auto?.enabled ? (
+              <button onClick={() => setAutoTrader(false)}
+                className="rounded-md border border-red-500 px-3 py-1.5 text-sm text-red-500">
+                Turn off
+              </button>
+            ) : (
+              <button onClick={() => setAutoTrader(true)}
+                className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white dark:bg-white dark:text-neutral-900">
+                Turn on
+              </button>
+            )}
+          </div>
+        </div>
+        {auto?.lastRun && (
+          <p className="mt-3 text-xs text-neutral-500">
+            Last cycle {new Date(auto.lastRun.at).toLocaleTimeString()}:{" "}
+            {auto.lastRun.ran && auto.lastRun.opened
+              ? `opened ${auto.lastRun.opened.coin} (${auto.lastRun.opened.short}/${auto.lastRun.opened.long}, ${(auto.lastRun.opened.netApr * 100).toFixed(1)}% APR)`
+              : auto.lastRun.reason}
+          </p>
+        )}
+      </section>
+
       <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-500">
-          Open positions ({open.length})
-        </h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">
+            Open positions ({open.length})
+          </h2>
+          {status?.totals && (
+            <span className="text-sm">
+              Total net P&amp;L:{" "}
+              <span className={`font-semibold tabular-nums ${status.totals.netPnlUsd > 0 ? "text-emerald-600 dark:text-emerald-400" : status.totals.netPnlUsd < 0 ? "text-red-500" : "text-neutral-500"}`}>
+                {money(status.totals.netPnlUsd)}
+              </span>
+              <span className="ml-2 text-xs text-neutral-400">
+                (funding {money(status.totals.accruedFundingUsd)} across {status.totals.count})
+              </span>
+            </span>
+          )}
+        </div>
         {open.length === 0 ? (
           <p className="text-sm text-neutral-500">No open testnet positions.</p>
         ) : (

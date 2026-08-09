@@ -12,5 +12,14 @@ export async function GET() {
     isHalted(),
     tickExecPositions(),
   ]);
-  return NextResponse.json({ ...execStatus(), halted, positions });
+  const totals = positions.reduce(
+    (acc, p) => {
+      acc.netPnlUsd += p.netPnlUsd;
+      acc.accruedFundingUsd += p.accruedFundingUsd ?? 0;
+      if (p.status === "open") acc.openCount += 1;
+      return acc;
+    },
+    { netPnlUsd: 0, accruedFundingUsd: 0, openCount: 0, count: positions.length }
+  );
+  return NextResponse.json({ ...execStatus(), halted, positions, totals });
 }
