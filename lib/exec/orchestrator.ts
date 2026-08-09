@@ -1,5 +1,7 @@
 import { binance } from "./binance";
 import { bybit } from "./bybit";
+import { okx } from "./okx";
+import { hyperliquid, hyperliquidAddress } from "./hyperliquid";
 import { checkRisk, riskConfig } from "./risk";
 import { isHalted, savePosition } from "./store";
 import type { Executor, ExecPosition, Side, Venue } from "./types";
@@ -7,7 +9,8 @@ import type { Executor, ExecPosition, Side, Venue } from "./types";
 const EXECUTORS: Partial<Record<Venue, Executor>> = {
   binance,
   bybit,
-  // okx, hyperliquid — added once their signing paths are validated on testnet.
+  okx,
+  hyperliquid,
 };
 
 export function executorFor(venue: Venue): Executor {
@@ -29,6 +32,7 @@ export function execStatus() {
       venue: v,
       configured: EXECUTORS[v]!.configured(),
     })),
+    hyperliquidAddress: hyperliquidAddress(),
   };
 }
 

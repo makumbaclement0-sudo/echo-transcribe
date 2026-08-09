@@ -9,6 +9,7 @@ interface Status {
   halted: boolean;
   limits: { maxUsdPerLeg: number; maxLeverage: number; minNetApr: number };
   venues: { venue: Venue; configured: boolean }[];
+  hyperliquidAddress: string | null;
   positions: ExecPosition[];
 }
 
@@ -18,14 +19,14 @@ const LABEL: Record<string, string> = {
   okx: "OKX",
   hyperliquid: "Hyperliquid",
 };
-// Only venues whose testnet execution is wired so far.
-const WIRED: Venue[] = ["binance", "bybit"];
+// Venues whose testnet execution is wired.
+const WIRED: Venue[] = ["binance", "bybit", "okx", "hyperliquid"];
 
 export default function TradePage() {
   const [status, setStatus] = useState<Status | null>(null);
   const [coin, setCoin] = useState("BTC");
-  const [short, setShort] = useState<Venue>("binance");
-  const [long, setLong] = useState<Venue>("bybit");
+  const [short, setShort] = useState<Venue>("okx");
+  const [long, setLong] = useState<Venue>("hyperliquid");
   const [usd, setUsd] = useState(50);
   const [leverage, setLeverage] = useState(2);
   const [busy, setBusy] = useState(false);
@@ -160,6 +161,15 @@ export default function TradePage() {
               </span>
             </span>
           ))}
+          {status.hyperliquidAddress && (
+            <span className="block mt-1">
+              Hyperliquid signs as{" "}
+              <code className="text-neutral-600 dark:text-neutral-300">
+                {status.hyperliquidAddress}
+              </code>{" "}
+              — fund this address on testnet.
+            </span>
+          )}
         </p>
       )}
 
