@@ -67,6 +67,12 @@ export default function Home() {
             Local transcription · AI summary · action items
           </p>
         </div>
+        <Link
+          href="/funding"
+          className="ml-auto rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-[var(--muted)] hover:text-[var(--foreground)]"
+        >
+          Funding Scanner →
+        </Link>
       </header>
 
       <Uploader onUploaded={refresh} />
