@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { Opportunity, ScanResult } from "@/lib/funding/types";
 import type { BacktestResult } from "@/lib/funding/backtest";
+import type { PaperView } from "@/lib/funding/paper";
 
 const EXCHANGE_LABEL: Record<string, string> = {
   binance: "Binance",
@@ -39,7 +40,9 @@ export default function FundingPage() {
   const [auto, setAuto] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [backtests, setBacktests] = useState<Record<string, BtState>>({});
+  const [positions, setPositions] = useState<PaperView[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const posTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const query = useMemo(
     () => `?holdDays=${holdDays}&slippagePct=${slippagePct}&minNetPct=${minNetPct}`,
@@ -103,6 +106,55 @@ export default function FundingPage() {
       if (!backtests[key] || backtests[key].status === "error") runBacktest(o);
     },
     [expanded, backtests, runBacktest]
+  );
+
+  const loadPositions = useCallback(async () => {
+    try {
+      const res = await fetch("/api/funding/paper", { cache: "no-store" });
+      const json = await res.json();
+      setPositions(json.positions ?? []);
+    } catch {
+      // ignore transient errors
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPositions();
+  }, [loadPositions]);
+
+  // Poll open positions so accrued funding ticks forward while you watch.
+  useEffect(() => {
+    if (positions.length === 0) return;
+    posTimer.current = setTimeout(loadPositions, 30_000);
+    return () => {
+      if (posTimer.current) clearTimeout(posTimer.current);
+    };
+  }, [positions, loadPositions]);
+
+  const openPaper = useCallback(
+    async (o: Opportunity, notional: number) => {
+      await fetch("/api/funding/paper", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          coin: o.coin,
+          short: o.short.exchange,
+          long: o.long.exchange,
+          notional,
+          slippagePct,
+        }),
+      });
+      loadPositions();
+    },
+    [slippagePct, loadPositions]
+  );
+
+  const closePaper = useCallback(
+    async (id: string) => {
+      await fetch(`/api/funding/paper/${id}`, { method: "DELETE" });
+      loadPositions();
+    },
+    [loadPositions]
   );
 
   const opps = data?.opportunities ?? [];
@@ -193,6 +245,7 @@ export default function FundingPage() {
                 open={expanded === o.coin}
                 bt={backtests[o.coin]}
                 onToggle={() => toggle(o)}
+                onPaper={(notional) => openPaper(o, notional)}
               />
             ))}
             {opps.length === 0 && (
@@ -205,6 +258,8 @@ export default function FundingPage() {
           </tbody>
         </table>
       </div>
+
+      <PaperSection positions={positions} onClose={closePaper} />
 
       <p className="mt-6 text-xs leading-relaxed text-neutral-500">
         <strong>Net APR (now)</strong> is the current snapshot after round-trip
@@ -230,11 +285,13 @@ function Row({
   open,
   bt,
   onToggle,
+  onPaper,
 }: {
   o: Opportunity;
   open: boolean;
   bt: BtState | undefined;
   onToggle: () => void;
+  onPaper: (notional: number) => void;
 }) {
   const net = o.netApr;
   const netColor =
@@ -277,6 +334,7 @@ function Row({
         <tr className="border-b border-neutral-100 bg-neutral-50/60 dark:border-neutral-800/60 dark:bg-neutral-900/30">
           <td colSpan={7} className="px-4 py-4">
             <BacktestPanel bt={bt} />
+            <PaperControl o={o} onPaper={onPaper} />
           </td>
         </tr>
       )}
@@ -318,6 +376,149 @@ function BacktestPanel({ bt }: { bt: BtState | undefined }) {
       </div>
       <Sparkline series={d.series} />
     </div>
+  );
+}
+
+function PaperControl({
+  o,
+  onPaper,
+}: {
+  o: Opportunity;
+  onPaper: (notional: number) => void;
+}) {
+  const [notional, setNotional] = useState(1000);
+  const [done, setDone] = useState(false);
+  return (
+    <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-neutral-200 pt-4 dark:border-neutral-800">
+      <label className="block">
+        <span className="mb-1 block text-[11px] uppercase tracking-wide text-neutral-400">
+          Notional / leg (USD)
+        </span>
+        <input
+          type="number"
+          min={1}
+          step={100}
+          value={notional}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => setNotional(Number(e.target.value))}
+          className="w-40 rounded-md border border-neutral-300 bg-transparent px-2 py-1.5 text-sm dark:border-neutral-700"
+        />
+      </label>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          if (notional > 0) {
+            onPaper(notional);
+            setDone(true);
+            setTimeout(() => setDone(false), 2000);
+          }
+        }}
+        className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
+      >
+        {done ? "Opened ✓" : "Open paper position"}
+      </button>
+      <span className="text-xs text-neutral-400">
+        Tracks {o.coin} forward with no capital at risk — funding accrues live,
+        fees deducted.
+      </span>
+    </div>
+  );
+}
+
+function PaperSection({
+  positions,
+  onClose,
+}: {
+  positions: PaperView[];
+  onClose: (id: string) => void;
+}) {
+  if (positions.length === 0) return null;
+  const usd = (n: number) =>
+    `${n < 0 ? "−" : ""}$${Math.abs(n).toLocaleString(undefined, {
+      maximumFractionDigits: 2,
+    })}`;
+  return (
+    <section className="mt-10">
+      <h2 className="mb-1 text-sm font-semibold uppercase tracking-wider text-neutral-500">
+        Paper positions
+      </h2>
+      <p className="mb-3 text-xs text-neutral-400">
+        Live forward test — the honest check on whether a backtested edge
+        actually holds. Funding accrues every ~30s; fees already deducted.
+      </p>
+      <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800">
+        <table className="w-full min-w-[760px] border-collapse text-sm">
+          <thead>
+            <tr className="border-b border-neutral-200 text-left text-xs uppercase tracking-wide text-neutral-500 dark:border-neutral-800">
+              <Th>Pair</Th>
+              <Th className="text-right">Notional</Th>
+              <Th className="text-right">Age</Th>
+              <Th className="text-right">Funding</Th>
+              <Th className="text-right">Fees</Th>
+              <Th className="text-right">Net P&amp;L</Th>
+              <Th className="text-right">Realized APR</Th>
+              <Th className="text-right">Now</Th>
+              <Th></Th>
+            </tr>
+          </thead>
+          <tbody>
+            {positions.map((p) => {
+              const pnlColor =
+                p.netPnlUsd > 0
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : p.netPnlUsd < 0
+                    ? "text-red-500"
+                    : "text-neutral-500";
+              return (
+                <tr
+                  key={p.id}
+                  className="border-b border-neutral-100 last:border-0 dark:border-neutral-800/60"
+                >
+                  <td className="px-3 py-2.5">
+                    <span className="font-medium">{p.coin}</span>{" "}
+                    <span className="text-xs text-neutral-400">
+                      S:{EXCHANGE_LABEL[p.short]?.slice(0, 3)} · L:
+                      {EXCHANGE_LABEL[p.long]?.slice(0, 3)}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">
+                    {usd(p.notional)}
+                  </td>
+                  <td className="px-3 py-2.5 text-right tabular-nums text-neutral-500">
+                    {p.ageHours < 24
+                      ? `${p.ageHours.toFixed(1)}h`
+                      : `${(p.ageHours / 24).toFixed(1)}d`}
+                  </td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">
+                    {usd(p.accruedFundingUsd)}
+                  </td>
+                  <td className="px-3 py-2.5 text-right tabular-nums text-neutral-500">
+                    −{usd(p.openFeeUsd + p.closeFeeUsd)}
+                  </td>
+                  <td className={`px-3 py-2.5 text-right font-semibold tabular-nums ${pnlColor}`}>
+                    {usd(p.netPnlUsd)}
+                  </td>
+                  <td className={`px-3 py-2.5 text-right tabular-nums ${pnlColor}`}>
+                    {p.realizedApr != null ? pct(p.realizedApr) : "—"}
+                  </td>
+                  <td className="px-3 py-2.5 text-right tabular-nums text-neutral-500">
+                    {p.currentNetApr != null ? pct(p.currentNetApr) : "—"}
+                  </td>
+                  <td className="px-3 py-2.5 text-right">
+                    <button
+                      onClick={() => onClose(p.id)}
+                      className="text-xs text-neutral-400 underline underline-offset-2 hover:text-red-500"
+                    >
+                      close
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
@@ -373,6 +574,6 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   );
 }
 
-function Th({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+function Th({ children, className = "" }: { children?: React.ReactNode; className?: string }) {
   return <th className={`px-3 py-2.5 font-medium ${className}`}>{children}</th>;
 }
