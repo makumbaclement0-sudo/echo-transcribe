@@ -17,11 +17,20 @@ interface Status {
 
 interface AutoState {
   enabled: boolean;
-  config: { intervalMin: number; maxPositions: number; usd: number; leverage: number; minNetApr: number };
+  config: {
+    intervalMin: number;
+    maxPositions: number;
+    usd: number;
+    leverage: number;
+    minNetApr: number;
+    closeApr: number;
+    maxHoldHours: number;
+  };
   lastRun: {
     at: string;
     ran: boolean;
     reason?: string;
+    closed?: { coin: string; reason: string }[];
     opened?: { coin: string; short: string; long: string; netApr: number };
   } | null;
 }
@@ -83,12 +92,12 @@ export default function TradePage() {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ tick: true }),
     }).then((x) => x.json());
-    const lr = r.lastRun;
-    setMsg(
-      lr?.ran
-        ? `Auto opened ${lr.opened.coin} (${lr.opened.short}/${lr.opened.long})`
-        : `Auto: ${lr?.reason ?? "no action"}`
-    );
+    const lr = r.lastRun as AutoState["lastRun"];
+    const parts = [
+      ...(lr?.closed ?? []).map((c) => `closed ${c.coin}`),
+      lr?.opened ? `opened ${lr.opened.coin}` : null,
+    ].filter(Boolean);
+    setMsg(parts.length ? `Auto: ${parts.join("; ")}` : `Auto: ${lr?.reason ?? "no action"}`);
     refresh();
   }, [refresh]);
 
@@ -301,10 +310,12 @@ export default function TradePage() {
             </h2>
             {auto && (
               <p className="mt-1 text-xs text-neutral-400">
-                Every {auto.config.intervalMin}m, opens the top pair clearing{" "}
-                {(auto.config.minNetApr * 100).toFixed(1)}% net APR — up to{" "}
-                {auto.config.maxPositions} positions, ${auto.config.usd}/leg @{" "}
-                {auto.config.leverage}x.
+                Every {auto.config.intervalMin}m: opens the top pair clearing{" "}
+                {(auto.config.minNetApr * 100).toFixed(1)}% net APR (up to{" "}
+                {auto.config.maxPositions}, ${auto.config.usd}/leg @{" "}
+                {auto.config.leverage}x), and closes any pair whose net APR falls
+                below {(auto.config.closeApr * 100).toFixed(1)}% or is held past{" "}
+                {auto.config.maxHoldHours}h.
               </p>
             )}
           </div>
@@ -329,9 +340,16 @@ export default function TradePage() {
         {auto?.lastRun && (
           <p className="mt-3 text-xs text-neutral-500">
             Last cycle {new Date(auto.lastRun.at).toLocaleTimeString()}:{" "}
-            {auto.lastRun.ran && auto.lastRun.opened
-              ? `opened ${auto.lastRun.opened.coin} (${auto.lastRun.opened.short}/${auto.lastRun.opened.long}, ${(auto.lastRun.opened.netApr * 100).toFixed(1)}% APR)`
-              : auto.lastRun.reason}
+            {[
+              ...(auto.lastRun.closed ?? []).map(
+                (c) => `closed ${c.coin} (${c.reason})`
+              ),
+              auto.lastRun.opened
+                ? `opened ${auto.lastRun.opened.coin} (${auto.lastRun.opened.short}/${auto.lastRun.opened.long}, ${(auto.lastRun.opened.netApr * 100).toFixed(1)}% APR)`
+                : null,
+            ]
+              .filter(Boolean)
+              .join("; ") || auto.lastRun.reason}
           </p>
         )}
       </section>
