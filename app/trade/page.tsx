@@ -242,7 +242,77 @@ export default function TradePage() {
           </div>
         )}
       </section>
+
+      <TradeHistory positions={status?.positions ?? []} />
     </main>
+  );
+}
+
+function TradeHistory({ positions }: { positions: ExecPosition[] }) {
+  if (positions.length === 0) return null;
+  const usd = (n: number) =>
+    `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  const statusColor: Record<string, string> = {
+    open: "text-emerald-600 dark:text-emerald-400",
+    closed: "text-neutral-500",
+    unwound: "text-red-500",
+  };
+  const leg = (l: ExecPosition["short"]) =>
+    l.filledQty > 0
+      ? `${l.filledQty}@${l.avgPrice.toLocaleString(undefined, { maximumFractionDigits: 4 })}`
+      : l.status;
+  return (
+    <section className="mt-10">
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-500">
+        Trade history ({positions.length})
+      </h2>
+      <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800">
+        <table className="w-full min-w-[820px] border-collapse text-sm">
+          <thead>
+            <tr className="border-b border-neutral-200 text-left text-xs uppercase tracking-wide text-neutral-500 dark:border-neutral-800">
+              <th className="px-3 py-2.5 font-medium">Opened</th>
+              <th className="px-3 py-2.5 font-medium">Coin</th>
+              <th className="px-3 py-2.5 font-medium">Short leg</th>
+              <th className="px-3 py-2.5 font-medium">Long leg</th>
+              <th className="px-3 py-2.5 text-right font-medium">Size</th>
+              <th className="px-3 py-2.5 text-right font-medium">Lev</th>
+              <th className="px-3 py-2.5 font-medium">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {positions.map((p) => (
+              <tr
+                key={p.id}
+                className="border-b border-neutral-100 last:border-0 align-top dark:border-neutral-800/60"
+              >
+                <td className="px-3 py-2.5 text-xs text-neutral-500">
+                  {new Date(p.openedAt).toLocaleString()}
+                </td>
+                <td className="px-3 py-2.5 font-medium">{p.coin}</td>
+                <td className="px-3 py-2.5 text-xs">
+                  {LABEL[p.short.venue]}
+                  <span className="ml-1 text-neutral-400">{leg(p.short)}</span>
+                </td>
+                <td className="px-3 py-2.5 text-xs">
+                  {LABEL[p.long.venue]}
+                  <span className="ml-1 text-neutral-400">{leg(p.long)}</span>
+                </td>
+                <td className="px-3 py-2.5 text-right tabular-nums">{usd(p.usd)}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums">{p.leverage}x</td>
+                <td className={`px-3 py-2.5 text-xs font-medium ${statusColor[p.status] ?? ""}`}>
+                  {p.status}
+                  {p.note && (
+                    <span className="block text-[10px] font-normal text-neutral-400">
+                      {p.note}
+                    </span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
