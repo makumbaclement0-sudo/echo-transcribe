@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import type { ExecPosition, Venue } from "@/lib/exec/types";
+import type { ExecView, Venue } from "@/lib/exec/types";
 
 interface Status {
   mode: "sim" | "testnet";
@@ -11,7 +11,12 @@ interface Status {
   limits: { maxUsdPerLeg: number; maxLeverage: number; minNetApr: number };
   venues: { venue: Venue; configured: boolean }[];
   hyperliquidAddress: string | null;
-  positions: ExecPosition[];
+  positions: ExecView[];
+}
+
+function money(n: number): string {
+  const v = Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 4 });
+  return `${n < 0 ? "−" : ""}$${v}`;
 }
 
 const LABEL: Record<string, string> = {
@@ -247,17 +252,36 @@ export default function TradePage() {
           <p className="text-sm text-neutral-500">No open testnet positions.</p>
         ) : (
           <div className="space-y-2">
-            {open.map((p) => (
-              <div key={p.id} className="flex items-center justify-between rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800">
-                <span>
-                  <span className="font-medium">{p.coin}</span> · S:{LABEL[p.short.venue]} · L:{LABEL[p.long.venue]} · ${p.usd}/leg @ {p.leverage}x
-                </span>
-                <button onClick={() => close(p.id)} disabled={busy}
-                  className="text-xs text-neutral-400 underline underline-offset-2 hover:text-red-500">
-                  close
-                </button>
-              </div>
-            ))}
+            {open.map((p) => {
+              const pnlColor =
+                p.netPnlUsd > 0
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : p.netPnlUsd < 0
+                    ? "text-red-500"
+                    : "text-neutral-500";
+              return (
+                <div key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800">
+                  <span>
+                    <span className="font-medium">{p.coin}</span> · S:{LABEL[p.short.venue]} · L:{LABEL[p.long.venue]} · ${p.usd}/leg @ {p.leverage}x
+                    <span className="ml-2 text-xs text-neutral-400">
+                      {p.ageHours < 1 ? `${Math.round(p.ageHours * 60)}m` : `${p.ageHours.toFixed(1)}h`} old
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-3">
+                    <span className="text-xs text-neutral-400">
+                      funding {money(p.accruedFundingUsd ?? 0)} · fees −{money(p.feesUsd)}
+                    </span>
+                    <span className={`font-semibold tabular-nums ${pnlColor}`}>
+                      {money(p.netPnlUsd)}
+                    </span>
+                    <button onClick={() => close(p.id)} disabled={busy}
+                      className="text-xs text-neutral-400 underline underline-offset-2 hover:text-red-500">
+                      close
+                    </button>
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>
@@ -267,7 +291,7 @@ export default function TradePage() {
   );
 }
 
-function TradeHistory({ positions }: { positions: ExecPosition[] }) {
+function TradeHistory({ positions }: { positions: ExecView[] }) {
   if (positions.length === 0) return null;
   const usd = (n: number) =>
     `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
@@ -276,7 +300,7 @@ function TradeHistory({ positions }: { positions: ExecPosition[] }) {
     closed: "text-neutral-500",
     unwound: "text-red-500",
   };
-  const leg = (l: ExecPosition["short"]) =>
+  const leg = (l: ExecView["short"]) =>
     l.filledQty > 0
       ? `${l.filledQty}@${l.avgPrice.toLocaleString(undefined, { maximumFractionDigits: 4 })}`
       : l.status;
@@ -294,7 +318,7 @@ function TradeHistory({ positions }: { positions: ExecPosition[] }) {
               <th className="px-3 py-2.5 font-medium">Short leg</th>
               <th className="px-3 py-2.5 font-medium">Long leg</th>
               <th className="px-3 py-2.5 text-right font-medium">Size</th>
-              <th className="px-3 py-2.5 text-right font-medium">Lev</th>
+              <th className="px-3 py-2.5 text-right font-medium">Net P&amp;L</th>
               <th className="px-3 py-2.5 font-medium">Status</th>
             </tr>
           </thead>
@@ -317,7 +341,9 @@ function TradeHistory({ positions }: { positions: ExecPosition[] }) {
                   <span className="ml-1 text-neutral-400">{leg(p.long)}</span>
                 </td>
                 <td className="px-3 py-2.5 text-right tabular-nums">{usd(p.usd)}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums">{p.leverage}x</td>
+                <td className={`px-3 py-2.5 text-right tabular-nums ${p.netPnlUsd > 0 ? "text-emerald-600 dark:text-emerald-400" : p.netPnlUsd < 0 ? "text-red-500" : "text-neutral-500"}`}>
+                  {money(p.netPnlUsd)}
+                </td>
                 <td className={`px-3 py-2.5 text-xs font-medium ${statusColor[p.status] ?? ""}`}>
                   {p.status}
                   {p.mode && (

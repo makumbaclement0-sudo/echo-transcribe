@@ -48,4 +48,19 @@ export interface ExecPosition {
   /** "sim" = simulated fills at live prices; "testnet" = real testnet orders. */
   mode?: "sim" | "testnet";
   note?: string;
+
+  // Forward funding P&L (accrues while the position is open).
+  accruedFundingUsd?: number;
+  lastAccrualAt?: string;
+  lastShortApr?: number | null;
+  lastLongApr?: number | null;
+}
+
+/** A position enriched with live funding P&L for the UI. */
+export interface ExecView extends ExecPosition {
+  feesUsd: number;
+  /** accrued funding minus round-trip fees. */
+  netPnlUsd: number;
+  currentNetApr: number | null;
+  ageHours: number;
 }

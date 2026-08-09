@@ -1,7 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { TAKER_FEE } from "./config";
-import { FETCHERS } from "./exchanges";
+import { currentFundingRates } from "./rates";
 import type { ExchangeId } from "./types";
 
 const HOURS_PER_YEAR = 24 * 365;
@@ -114,19 +114,6 @@ export async function deletePosition(id: string): Promise<boolean> {
   }
 }
 
-/** Current annualized funding per venue+coin, keyed `${exchange}:${coin}`. */
-async function currentRates(): Promise<Map<string, number>> {
-  const settled = await Promise.allSettled(
-    (Object.keys(FETCHERS) as ExchangeId[]).map((ex) => FETCHERS[ex]())
-  );
-  const map = new Map<string, number>();
-  for (const r of settled) {
-    if (r.status !== "fulfilled") continue;
-    for (const p of r.value) map.set(`${p.exchange}:${p.coin}`, p.aprFraction);
-  }
-  return map;
-}
-
 /** Credit elapsed funding to one position at the current differential. */
 function accrue(
   p: PaperPosition,
@@ -174,7 +161,7 @@ export async function tickAll(): Promise<PaperView[]> {
   const positions = await listPositions();
   if (positions.length === 0) return [];
 
-  const rates = await currentRates();
+  const rates = await currentFundingRates();
   const now = Date.now();
   const views: PaperView[] = [];
   for (const p of positions) {

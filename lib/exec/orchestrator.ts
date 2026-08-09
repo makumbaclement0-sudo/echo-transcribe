@@ -149,6 +149,8 @@ export async function openPair(input: OpenPairInput): Promise<ExecPosition> {
     openedAt: new Date().toISOString(),
     status: "open",
     mode,
+    accruedFundingUsd: 0,
+    lastAccrualAt: new Date().toISOString(),
   };
   return savePosition(pos);
 }
