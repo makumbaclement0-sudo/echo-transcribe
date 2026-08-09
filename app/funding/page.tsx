@@ -173,12 +173,20 @@ export default function FundingPage() {
             row to backtest whether the edge actually persists.
           </p>
         </div>
-        <Link
-          href="/"
-          className="text-sm text-neutral-500 underline underline-offset-4 hover:text-neutral-800"
-        >
-          ← Echo
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link
+            href="/trade"
+            className="text-sm text-neutral-500 underline underline-offset-4 hover:text-neutral-800"
+          >
+            Testnet trading →
+          </Link>
+          <Link
+            href="/"
+            className="text-sm text-neutral-500 underline underline-offset-4 hover:text-neutral-800"
+          >
+            ← Echo
+          </Link>
+        </div>
       </header>
 
       <section className="mb-6 grid grid-cols-2 gap-4 rounded-xl border border-neutral-200 bg-white/50 p-4 sm:grid-cols-5 dark:border-neutral-800 dark:bg-neutral-900/40">

@@ -1,0 +1,268 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import type { ExecPosition, Venue } from "@/lib/exec/types";
+
+interface Status {
+  enabled: boolean;
+  halted: boolean;
+  limits: { maxUsdPerLeg: number; maxLeverage: number; minNetApr: number };
+  venues: { venue: Venue; configured: boolean }[];
+  positions: ExecPosition[];
+}
+
+const LABEL: Record<string, string> = {
+  binance: "Binance",
+  bybit: "Bybit",
+  okx: "OKX",
+  hyperliquid: "Hyperliquid",
+};
+// Only venues whose testnet execution is wired so far.
+const WIRED: Venue[] = ["binance", "bybit"];
+
+export default function TradePage() {
+  const [status, setStatus] = useState<Status | null>(null);
+  const [coin, setCoin] = useState("BTC");
+  const [short, setShort] = useState<Venue>("binance");
+  const [long, setLong] = useState<Venue>("bybit");
+  const [usd, setUsd] = useState(50);
+  const [leverage, setLeverage] = useState(2);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      const res = await fetch("/api/exec/status", { cache: "no-store" });
+      setStatus(await res.json());
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    // Status is populated asynchronously after the fetch resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void refresh();
+    const t = setInterval(() => void refresh(), 15_000);
+    return () => clearInterval(t);
+  }, [refresh]);
+
+  const execute = useCallback(async () => {
+    if (short === long) {
+      setMsg("Short and long must be different venues.");
+      return;
+    }
+    if (
+      !confirm(
+        `TESTNET order:\nSHORT ${LABEL[short]} · LONG ${LABEL[long]}\n${coin} — $${usd}/leg @ ${leverage}x\n\nPlace it?`
+      )
+    )
+      return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      // Pull the coin's current net edge from the scanner to satisfy the gate.
+      let netApr = 0;
+      try {
+        const scan = await fetch("/api/funding?holdDays=14", { cache: "no-store" });
+        const j = await scan.json();
+        netApr =
+          j.opportunities?.find(
+            (o: { coin: string }) => o.coin === coin.toUpperCase()
+          )?.netApr ?? 0;
+      } catch {
+        /* fall through with 0 */
+      }
+      const res = await fetch("/api/exec/execute", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ coin, short, long, usd, leverage, netApr }),
+      });
+      const j = await res.json();
+      setMsg(res.ok ? `Opened pair ${j.position.id}` : `Blocked: ${j.error}`);
+      refresh();
+    } finally {
+      setBusy(false);
+    }
+  }, [coin, short, long, usd, leverage, refresh]);
+
+  const close = useCallback(
+    async (id: string) => {
+      setBusy(true);
+      try {
+        const res = await fetch("/api/exec/close", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ id }),
+        });
+        const j = await res.json();
+        setMsg(res.ok ? `Closed ${id}` : `Close failed: ${j.error}`);
+        refresh();
+      } finally {
+        setBusy(false);
+      }
+    },
+    [refresh]
+  );
+
+  const setHalt = useCallback(
+    async (on: boolean) => {
+      await fetch("/api/exec/halt", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ on }),
+      });
+      refresh();
+    },
+    [refresh]
+  );
+
+  const open = (status?.positions ?? []).filter((p) => p.status === "open");
+
+  return (
+    <main className="mx-auto w-full max-w-4xl px-4 py-8">
+      <header className="mb-4 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold tracking-tight">Testnet Trading</h1>
+        <Link
+          href="/funding"
+          className="text-sm text-neutral-500 underline underline-offset-4 hover:text-neutral-800"
+        >
+          ← Scanner
+        </Link>
+      </header>
+
+      <div className="mb-6 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+        <strong>TESTNET only.</strong> These orders hit exchange test
+        environments with fake funds. No real money moves. Keep API keys
+        trade-only (never withdrawal) and in <code>.env.local</code>.
+      </div>
+
+      {status && (
+        <section className="mb-6 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+          <Stat label="Execution" value={status.enabled ? "ARMED" : "disabled"}
+            className={status.enabled ? "text-emerald-600" : "text-neutral-500"} />
+          <Stat label="Kill switch" value={status.halted ? "HALTED" : "clear"}
+            className={status.halted ? "text-red-500" : "text-neutral-500"} />
+          <Stat label="Max / leg" value={`$${status.limits.maxUsdPerLeg}`} />
+          <Stat label="Max leverage" value={`${status.limits.maxLeverage}x`} />
+        </section>
+      )}
+
+      {status && (
+        <p className="mb-6 text-xs text-neutral-500">
+          Venues wired:{" "}
+          {status.venues.map((v) => (
+            <span key={v.venue} className="mr-3">
+              {LABEL[v.venue]}:{" "}
+              <span className={v.configured ? "text-emerald-600" : "text-red-500"}>
+                {v.configured ? "keys ok" : "no keys"}
+              </span>
+            </span>
+          ))}
+        </p>
+      )}
+
+      <section className="mb-8 rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-500">
+          Open a delta-neutral pair
+        </h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <Field label="Coin">
+            <input value={coin} onChange={(e) => setCoin(e.target.value.toUpperCase())}
+              className="w-full rounded-md border border-neutral-300 bg-transparent px-2 py-1.5 text-sm dark:border-neutral-700" />
+          </Field>
+          <Field label="Short (receive)">
+            <Select value={short} onChange={setShort} />
+          </Field>
+          <Field label="Long (pay)">
+            <Select value={long} onChange={setLong} />
+          </Field>
+          <Field label="USD / leg">
+            <input type="number" min={1} value={usd} onChange={(e) => setUsd(Number(e.target.value))}
+              className="w-full rounded-md border border-neutral-300 bg-transparent px-2 py-1.5 text-sm dark:border-neutral-700" />
+          </Field>
+          <Field label="Leverage">
+            <input type="number" min={1} value={leverage} onChange={(e) => setLeverage(Number(e.target.value))}
+              className="w-full rounded-md border border-neutral-300 bg-transparent px-2 py-1.5 text-sm dark:border-neutral-700" />
+          </Field>
+        </div>
+        <div className="mt-4 flex items-center gap-3">
+          <button onClick={execute} disabled={busy || !status?.enabled}
+            className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40 dark:bg-white dark:text-neutral-900">
+            {busy ? "Working…" : "Open testnet pair"}
+          </button>
+          {status?.halted ? (
+            <button onClick={() => setHalt(false)} className="rounded-md border border-emerald-500 px-3 py-2 text-sm text-emerald-600">
+              Resume
+            </button>
+          ) : (
+            <button onClick={() => setHalt(true)} className="rounded-md border border-red-500 px-3 py-2 text-sm text-red-500">
+              HALT all
+            </button>
+          )}
+          {!status?.enabled && (
+            <span className="text-xs text-neutral-500">
+              Set <code>EXEC_ENABLED=true</code> in <code>.env.local</code> to arm.
+            </span>
+          )}
+        </div>
+        {msg && <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-300">{msg}</p>}
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-500">
+          Open positions ({open.length})
+        </h2>
+        {open.length === 0 ? (
+          <p className="text-sm text-neutral-500">No open testnet positions.</p>
+        ) : (
+          <div className="space-y-2">
+            {open.map((p) => (
+              <div key={p.id} className="flex items-center justify-between rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800">
+                <span>
+                  <span className="font-medium">{p.coin}</span> · S:{LABEL[p.short.venue]} · L:{LABEL[p.long.venue]} · ${p.usd}/leg @ {p.leverage}x
+                </span>
+                <button onClick={() => close(p.id)} disabled={busy}
+                  className="text-xs text-neutral-400 underline underline-offset-2 hover:text-red-500">
+                  close
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </main>
+  );
+}
+
+function Select({ value, onChange }: { value: Venue; onChange: (v: Venue) => void }) {
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value as Venue)}
+      className="w-full rounded-md border border-neutral-300 bg-transparent px-2 py-1.5 text-sm dark:border-neutral-700">
+      {WIRED.map((v) => (
+        <option key={v} value={v} className="dark:bg-neutral-900">
+          {LABEL[v]}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-[11px] uppercase tracking-wide text-neutral-400">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function Stat({ label, value, className = "" }: { label: string; value: string; className?: string }) {
+  return (
+    <div className="rounded-lg border border-neutral-200 px-3 py-2 dark:border-neutral-800">
+      <div className="text-[11px] uppercase tracking-wide text-neutral-400">{label}</div>
+      <div className={`text-sm font-semibold ${className}`}>{value}</div>
+    </div>
+  );
+}
