@@ -1,6 +1,7 @@
 import { scan, DEFAULT_PARAMS } from "@/lib/funding/scan";
 import { currentFundingRates } from "@/lib/funding/rates";
 import { closePair, openPair } from "./orchestrator";
+import { tickExecPositions } from "./pnl";
 import { riskConfig } from "./risk";
 import {
   getLastAuto,
@@ -8,6 +9,7 @@ import {
   isHalted,
   listPositions,
   setAuto,
+  setHalt,
   setLastAuto,
 } from "./store";
 
@@ -21,6 +23,8 @@ export interface AutoConfig {
   closeApr: number;
   /** Close a position once held this many hours (0 = no time limit). */
   maxHoldHours: number;
+  /** Flatten everything and HALT if total net P&L falls to −this USD (0 = off). */
+  maxDrawdownUsd: number;
 }
 
 export function autoConfig(): AutoConfig {
@@ -33,6 +37,7 @@ export function autoConfig(): AutoConfig {
     minNetApr: Number(process.env.AUTO_MIN_NET_APR ?? risk.minNetApr),
     closeApr: Number(process.env.AUTO_CLOSE_APR ?? 0),
     maxHoldHours: Number(process.env.AUTO_MAX_HOLD_HOURS ?? 168),
+    maxDrawdownUsd: Number(process.env.AUTO_MAX_DRAWDOWN_USD ?? 0),
   };
 }
 
@@ -152,9 +157,54 @@ export async function autoTick(): Promise<AutoResult> {
   }
 }
 
+function usd(n: number): string {
+  return `${n < 0 ? "−" : ""}$${Math.abs(n).toFixed(2)}`;
+}
+
+/**
+ * Drawdown circuit-breaker. Runs every cycle regardless of whether the
+ * auto-trader is on, because open positions can bleed even while idle. If total
+ * net P&L falls to −maxDrawdownUsd, flatten every open position and engage the
+ * kill switch so nothing re-opens until you manually resume.
+ */
+export async function checkDrawdown(): Promise<AutoResult | null> {
+  const cfg = autoConfig();
+  if (cfg.maxDrawdownUsd <= 0) return null;
+  if (await isHalted()) return null; // already stopped
+
+  const views = await tickExecPositions();
+  const total = views.reduce((s, v) => s + v.netPnlUsd, 0);
+  if (total > -cfg.maxDrawdownUsd) return null;
+
+  const closed: { coin: string; reason: string }[] = [];
+  for (const v of views) {
+    if (v.status !== "open") continue;
+    try {
+      await closePair(v); // must close before halting
+      closed.push({ coin: v.coin, reason: "drawdown flatten" });
+    } catch {
+      // try again is moot — we halt regardless below
+    }
+  }
+  await setHalt(true);
+  return {
+    at: new Date().toISOString(),
+    ran: true,
+    closed,
+    reason: `DRAWDOWN circuit-breaker: total P&L ${usd(total)} ≤ −$${cfg.maxDrawdownUsd} — flattened ${closed.length} and HALTED`,
+  };
+}
+
+/** One full cycle: drawdown guard first, then (if not tripped) the auto-trader. */
+export async function runCycle(): Promise<AutoResult> {
+  const dd = await checkDrawdown();
+  if (dd) return dd;
+  return autoTick();
+}
+
 async function safeTick(): Promise<void> {
   try {
-    await setLastAuto(await autoTick());
+    await setLastAuto(await runCycle());
   } catch {
     // never let a bad cycle crash the loop
   }

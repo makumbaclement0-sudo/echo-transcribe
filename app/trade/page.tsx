@@ -25,6 +25,7 @@ interface AutoState {
     minNetApr: number;
     closeApr: number;
     maxHoldHours: number;
+    maxDrawdownUsd: number;
   };
   lastRun: {
     at: string;
@@ -210,6 +211,16 @@ export default function TradePage() {
         </div>
       )}
 
+      {status?.halted && (
+        <div className="mb-6 rounded-lg border border-red-500/50 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-400">
+          <strong>TRADING HALTED.</strong>{" "}
+          {auto?.lastRun?.reason?.startsWith("DRAWDOWN")
+            ? auto.lastRun.reason
+            : "Kill switch engaged — no orders will be placed."}{" "}
+          Press <em>Resume</em> to re-arm.
+        </div>
+      )}
+
       {status && (
         <section className="mb-6 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
           <Stat label="Mode"
@@ -316,6 +327,11 @@ export default function TradePage() {
                 {auto.config.leverage}x), and closes any pair whose net APR falls
                 below {(auto.config.closeApr * 100).toFixed(1)}% or is held past{" "}
                 {auto.config.maxHoldHours}h.
+                {auto.config.maxDrawdownUsd > 0 ? (
+                  <> Circuit-breaker: flatten &amp; HALT if total P&amp;L ≤ −${auto.config.maxDrawdownUsd}.</>
+                ) : (
+                  <> Drawdown breaker off (set AUTO_MAX_DRAWDOWN_USD).</>
+                )}
               </p>
             )}
           </div>

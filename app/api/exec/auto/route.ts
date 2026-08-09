@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { autoState, autoTick } from "@/lib/exec/auto";
+import { autoState, runCycle } from "@/lib/exec/auto";
 import { setAuto, setLastAuto } from "@/lib/exec/store";
 
 export const runtime = "nodejs";
@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     await setAuto(body.on);
   }
   if (body.tick === true) {
-    await setLastAuto(await autoTick());
+    await setLastAuto(await runCycle());
   }
   return NextResponse.json(await autoState());
 }
