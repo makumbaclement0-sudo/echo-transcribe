@@ -6,12 +6,12 @@ import type { FundingPoint, Opportunity, ScanParams } from "./types";
  * notional. Two legs, opened and closed once = taker fee ×2 per leg, plus a
  * one-way slippage assumption on each of the four fills.
  */
-function roundTripCost(
-  short: FundingPoint,
-  long: FundingPoint,
+export function roundTripCost(
+  shortExchange: FundingPoint["exchange"],
+  longExchange: FundingPoint["exchange"],
   slippagePerLeg: number
 ): number {
-  const fees = 2 * (TAKER_FEE[short.exchange] + TAKER_FEE[long.exchange]);
+  const fees = 2 * (TAKER_FEE[shortExchange] + TAKER_FEE[longExchange]);
   const slippage = 4 * slippagePerLeg;
   return fees + slippage;
 }
@@ -40,7 +40,7 @@ export function bestOpportunity(
   if (short.exchange === long.exchange) return null;
 
   const grossApr = short.aprFraction - long.aprFraction;
-  const cost = roundTripCost(short, long, params.slippagePerLeg);
+  const cost = roundTripCost(short.exchange, long.exchange, params.slippagePerLeg);
   // Amortize the one-time cost across the holding period → annualized drag.
   const costDragApr = cost * (365 / Math.max(params.holdDays, 0.001));
   const netApr = grossApr - costDragApr;
