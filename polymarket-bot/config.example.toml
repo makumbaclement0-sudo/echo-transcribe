@@ -1,0 +1,43 @@
+# Copy to my.toml and run:  python -m pmbot --config my.toml paper
+# Every key is optional; anything omitted keeps the default in pmbot/config.py.
+
+[scanner]
+max_markets = 8              # markets quoted at once
+min_volume_24h = 5000        # skip markets without real two-way flow
+min_mid = 0.08               # skip near-certain outcomes (tiny edge, big tail risk)
+max_mid = 0.92
+min_hours_to_end = 24        # stop quoting a day before resolution
+avoid_live_games = true      # in-play sports is where makers get picked off
+avoid_crypto_price = true    # exchange-feed-driven markets: latency game you will lose
+exclude_keywords = []        # e.g. ["nba", "election"]
+
+[mm]
+order_size = 25              # shares per quote (bumped to a market's reward min size)
+min_half_spread = 0.005      # 0.005 on a 1c tick = join the best bid/ask
+vol_multiplier = 2.0         # widen when the price is moving
+inventory_skew = 0.02        # lean quotes against inventory
+max_inventory = 200          # net YES-equivalent shares per market
+target_rewards = true        # stay inside liquidity-reward bands when possible
+
+[arb]
+enabled = true
+min_edge = 0.005             # $ per complete set after taker fees
+max_set_size = 200
+
+[risk]
+starting_cash = 1000         # paper bankroll
+max_market_notional = 150
+max_total_notional = 600
+max_daily_loss = 50          # kill switch: cancel everything, stop quoting
+max_open_orders = 40
+stale_book_s = 30
+
+[paper]
+queue_trade_share = 0.5      # how much of a shrinking level we assume was trades
+assume_fill_on_trade_through = true
+
+[engine]
+poll_interval_s = 2
+rescan_interval_s = 900
+report_interval_s = 30
+run_dir = "runs"
