@@ -101,3 +101,24 @@ data/                      Uploads + job JSON (gitignored)
   Claude for summarization.
 - To use a bigger/more accurate Whisper model, set `WHISPER_MODEL=small` (or
   `medium`) in `.env.local`.
+
+---
+
+## Side tool: funding carry scanner
+
+`scripts/funding_scan.py` is a standalone script (Python 3.9+, no dependencies) that is unrelated to the transcription app. It finds perpetual futures whose funding rate was positive on **every** payment over a lookback window, across OKX, Bitget, Gate and Hyperliquid. For each match it reports the annualised yield, the full payment history, and the projected income of a delta-neutral carry trade (long spot, short perp) over a hold period.
+
+```bash
+# default: 5-day lookback, $10k per leg, 40-day hold, perps with >= $1M 24h volume
+python scripts/funding_scan.py
+
+# your own size, save the data, build the interactive report
+python scripts/funding_scan.py --size 25000 --hold 40 --json funding.json --html funding.html
+
+# re-render a saved scan without hitting the exchanges again
+python scripts/funding_scan.py --from-json funding.json --html funding.html
+```
+
+Useful flags: `--days`, `--venues okx,hyperliquid`, `--min-volume 5e6`, `--min-apr 0.1`, `--spot-fee`, `--perp-fee`.
+The HTML report (`scripts/funding_report.html` is its template) lets you change size and hold period in the browser.
+Projections hold the observed rate flat. Treat them as "if the last N days continue", not as a forecast.

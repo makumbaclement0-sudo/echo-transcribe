@@ -1,0 +1,600 @@
+<title>Funding Carry Scanner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #f5f7fa;
+    --panel: #ffffff;
+    --panel-2: #eef1f5;
+    --line: #dde2ea;
+    --ink: #121820;
+    --ink-2: #3a4452;
+    --muted: #5a6576;
+    --accent: #1f5fae;
+    --accent-soft: #e4edf8;
+    --bar: #2a78d6;
+    --bar-hover: #1a5aa8;
+    --grid: #e6eaf0;
+    --good: #147a4b;
+    --good-soft: #e2f3ea;
+    --warn: #8a5a0b;
+    --warn-soft: #fbf0d9;
+    --focus: #2a78d6;
+    --shadow: 0 1px 2px rgba(18, 24, 32, .05), 0 4px 16px rgba(18, 24, 32, .04);
+    --display: "Archivo Narrow", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+    --body: "IBM Plex Sans", -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #0f1319;
+      --panel: #161b23;
+      --panel-2: #1c222c;
+      --line: #2a323e;
+      --ink: #eef2f7;
+      --ink-2: #c5cdd8;
+      --muted: #97a2b2;
+      --accent: #7fb2ef;
+      --accent-soft: #1b2a3f;
+      --bar: #3987e5;
+      --bar-hover: #79aef0;
+      --grid: #232a35;
+      --good: #5fd39a;
+      --good-soft: #15291f;
+      --warn: #f0bf62;
+      --warn-soft: #2e2413;
+      --focus: #79aef0;
+      --shadow: none;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0f1319;
+    --panel: #161b23;
+    --panel-2: #1c222c;
+    --line: #2a323e;
+    --ink: #eef2f7;
+    --ink-2: #c5cdd8;
+    --muted: #97a2b2;
+    --accent: #7fb2ef;
+    --accent-soft: #1b2a3f;
+    --bar: #3987e5;
+    --bar-hover: #79aef0;
+    --grid: #232a35;
+    --good: #5fd39a;
+    --good-soft: #15291f;
+    --warn: #f0bf62;
+    --warn-soft: #2e2413;
+    --focus: #79aef0;
+    --shadow: none;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.5 var(--body);
+    padding-inline: 16px;
+    padding-block: 28px 56px;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 22px; }
+  h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-spacing: .005em; }
+  h1 { font-size: clamp(26px, 4vw, 34px); font-weight: 700; line-height: 1.1; }
+  h2 { font-size: 20px; font-weight: 600; }
+  h3 { font-size: 15px; font-weight: 600; }
+  p { margin: 0; }
+  .num, td.n, .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .eyebrow { font: 600 11px/1 var(--body); text-transform: uppercase; letter-spacing: .09em; color: var(--muted); }
+  .lede { color: var(--ink-2); max-width: 70ch; }
+  button, input, select { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  header { display: grid; gap: 10px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--muted); font-size: 13px; }
+  .meta b { color: var(--ink-2); font-weight: 500; }
+
+  /* Controls */
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 14px 18px; align-items: end;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px; box-shadow: var(--shadow);
+  }
+  .field { display: grid; gap: 5px; }
+  .field label, .field .lbl { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .money { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); }
+  .money span { padding-left: 10px; color: var(--muted); font-family: var(--mono); }
+  .money input, .field select, .field input[type=number] {
+    border: 0; background: transparent; padding: 7px 10px; font-family: var(--mono); font-variant-numeric: tabular-nums;
+    width: 130px; min-width: 0;
+  }
+  .field select { border: 1px solid var(--line); border-radius: 7px; background: var(--bg); width: auto; font-family: var(--body); }
+  .field input[type=number].days { border: 1px solid var(--line); border-radius: 7px; background: var(--bg); width: 90px; }
+  .presets { display: flex; gap: 4px; flex-wrap: wrap; }
+  .presets button {
+    border: 1px solid var(--line); background: var(--bg); border-radius: 6px; padding: 3px 8px;
+    font-family: var(--mono); font-size: 12px; cursor: pointer; color: var(--ink-2);
+  }
+  .presets button:hover { border-color: var(--accent); color: var(--accent); }
+  .presets button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .check { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--ink-2); padding-bottom: 7px; cursor: pointer; }
+
+  /* Summary tiles */
+  .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 4px; align-content: start; }
+  .tile .v { font: 500 24px/1.15 var(--mono); font-variant-numeric: tabular-nums; }
+  .tile .s { font-size: 12.5px; color: var(--muted); }
+  @media (max-width: 820px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+  /* Table */
+  .tablebox { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; }
+  .tablehead { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; padding: 14px 16px 10px; }
+  .tablehead p { color: var(--muted); font-size: 13px; }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { padding: 9px 10px; text-align: right; white-space: nowrap; }
+  th { font: 600 11px/1.3 var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); background: var(--panel-2); }
+  th.l, td.l { text-align: left; }
+  th button { all: unset; cursor: pointer; }
+  th button:hover { color: var(--ink); }
+  th[aria-sort="descending"] button::after { content: " ↓"; color: var(--accent); }
+  th[aria-sort="ascending"] button::after { content: " ↑"; color: var(--accent); }
+  tbody tr.row { border-top: 1px solid var(--line); cursor: pointer; }
+  tbody tr.row:hover { background: var(--panel-2); }
+  tbody tr.row[aria-expanded="true"] { background: var(--accent-soft); }
+  td.n { font-size: 13px; }
+  .rank { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+  .coin { display: flex; align-items: center; gap: 8px; }
+  .coin b { font-family: var(--display); font-size: 16px; font-weight: 700; letter-spacing: .01em; }
+  .venue { font-size: 12px; color: var(--muted); }
+  .apr { font-weight: 500; color: var(--ink); }
+  .pos { color: var(--good); }
+  .chips { display: flex; gap: 4px; flex-wrap: wrap; }
+  .chip { font-size: 11px; line-height: 1; padding: 4px 6px; border-radius: 4px; border: 1px solid var(--line); color: var(--ink-2); background: var(--bg); white-space: nowrap; }
+  .chip.warn { color: var(--warn); background: var(--warn-soft); border-color: transparent; }
+  .chip.good { color: var(--good); background: var(--good-soft); border-color: transparent; }
+  .expander { width: 18px; color: var(--muted); font-family: var(--mono); }
+  tr.row[aria-expanded="true"] .expander { color: var(--accent); }
+  svg.spark { display: block; }
+  .empty { padding: 28px 16px; color: var(--muted); }
+
+  /* Detail */
+  tr.detail > td { padding: 0; text-align: left; white-space: normal; background: var(--bg); border-top: 1px solid var(--line); }
+  .detailgrid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 18px; padding: 18px 16px 20px; position: sticky; left: 0; max-width: min(1178px, calc(100vw - 34px)); }
+  @media (max-width: 900px) { .detailgrid { grid-template-columns: minmax(0, 1fr); } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 14px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+  .cardhead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .cardhead p { color: var(--muted); font-size: 12.5px; }
+  .chart { position: relative; }
+  .chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .chart text { font-family: var(--mono); font-size: 10px; fill: var(--muted); }
+  .tip {
+    position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--line);
+    box-shadow: 0 6px 20px rgba(0,0,0,.14); border-radius: 7px; padding: 7px 9px; font-size: 12px; line-height: 1.4;
+    white-space: nowrap; transform: translate(-50%, calc(-100% - 10px)); z-index: 2;
+  }
+  .tip .t { color: var(--muted); font-size: 11px; }
+  .tip .r { font-family: var(--mono); font-weight: 500; }
+  .kv { display: grid; grid-template-columns: auto auto; gap: 4px 14px; font-size: 13px; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  table.mini th, table.mini td { padding: 6px 8px; font-size: 12.5px; }
+  table.mini th { background: transparent; }
+  table.mini tr + tr td { border-top: 1px solid var(--line); }
+  table.mini td.strong { font-weight: 600; color: var(--ink); }
+  .log { max-height: 260px; overflow: auto; border: 1px solid var(--line); border-radius: 7px; }
+  .log table th { position: sticky; top: 0; }
+  .days { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 8px; }
+  .day { border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; display: grid; gap: 2px; background: var(--panel); }
+  .day .d { font-size: 11px; color: var(--muted); }
+  .day .a { font: 500 14px var(--mono); }
+  .day .b { font-size: 11.5px; color: var(--muted); font-family: var(--mono); }
+  .note { font-size: 12.5px; color: var(--muted); }
+
+  /* Venue coverage + method */
+  .cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
+  @media (max-width: 820px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+  .prose { display: grid; gap: 10px; color: var(--ink-2); max-width: 72ch; }
+  .prose ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+  .prose code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); padding: 1px 5px; border-radius: 4px; }
+  .rej { color: var(--muted); font-size: 12px; white-space: normal; text-align: left; }
+  @media (prefers-reduced-motion: no-preference) { tbody tr.row { transition: background .12s; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Delta-neutral carry · long spot, short perp</span>
+    <h1>Funding Carry Scanner</h1>
+    <p class="lede" id="lede">Perpetuals where every funding payment in the lookback window was positive, so shorts were paid every single time. Set your size and hold period and the projections update.</p>
+    <div class="meta" id="meta"></div>
+  </header>
+
+  <section class="controls" aria-label="Position settings">
+    <div class="field">
+      <label for="size">Size per leg</label>
+      <div class="money"><span>$</span><input id="size" type="number" min="100" step="100" inputmode="decimal"></div>
+      <div class="presets" id="sizePresets"></div>
+    </div>
+    <div class="field">
+      <label for="hold">Hold (days)</label>
+      <input id="hold" class="days" type="number" min="1" max="365" step="1">
+      <div class="presets" id="holdPresets"></div>
+    </div>
+    <div class="field">
+      <label for="venue">Venue</label>
+      <select id="venue"></select>
+    </div>
+    <div class="field">
+      <label for="minApr">Min APR</label>
+      <select id="minApr">
+        <option value="0">Any</option>
+        <option value="0.05">5%</option>
+        <option value="0.1" selected>10%</option>
+        <option value="0.2">20%</option>
+        <option value="0.4">40%</option>
+      </select>
+    </div>
+    <label class="check"><input id="spotOnly" type="checkbox"> Spot on same venue</label>
+    <label class="check"><input id="oneCoin" type="checkbox" checked> Best venue per coin</label>
+  </section>
+
+  <section class="tiles" id="tiles" aria-label="Summary"></section>
+
+  <section class="tablebox">
+    <div class="tablehead">
+      <h2>Consistently positive funding</h2>
+      <p id="tableNote"></p>
+    </div>
+    <div class="scroll">
+      <table id="grid">
+        <thead>
+          <tr>
+            <th class="l" style="width:28px"><span class="sr" hidden>Expand</span></th>
+            <th class="l">#</th>
+            <th class="l">Market</th>
+            <th data-k="apr" aria-sort="descending"><button type="button">APR 5d</button></th>
+            <th data-k="apr_last24"><button type="button">APR 24h</button></th>
+            <th data-k="apr_min_day"><button type="button">Worst day</button></th>
+            <th class="l">Payments</th>
+            <th data-k="volume_usd"><button type="button">Vol 24h</button></th>
+            <th data-k="gross"><button type="button" id="grossHead">Gross</button></th>
+            <th data-k="net"><button type="button" id="netHead">Net of fees</button></th>
+            <th data-k="breakeven_days"><button type="button">Break-even</button></th>
+            <th class="l">Flags</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="cols">
+    <div class="card">
+      <h2>How to read this</h2>
+      <div class="prose">
+        <ul>
+          <li><b>Consistently positive</b> means every payment in the lookback window was above zero, and the market paid funding for the whole window. One negative print and it is out.</li>
+          <li><b>APR 5d</b> is the sum of all payments in the window, divided by the days, times 365. It is simple interest on the notional of one leg.</li>
+          <li><b>APR 24h</b> uses only the most recent day. <b>Worst day</b> uses the weakest of the five days. A 24h figure well below the 5-day figure means the carry is fading.</li>
+          <li><b>Projections</b> hold a rate flat for the whole hold: the base case uses the 5-day average, the conservative case the worst day and the recent case the last 24h. Net subtracts taker fees to open and close both legs.</li>
+          <li><b>Break-even</b> is how many days of funding at the 5-day rate it takes to pay those fees back.</li>
+          <li>Capital needed is about size × (1 + 1/perp leverage). At 2× on the short that is 1.5 × size, so yield on capital is lower than APR on notional.</li>
+        </ul>
+        <p class="note">Funding rates mean-revert and can flip within hours. Five clean days is a filter, not a forecast. The main risks on a 40-day hold are a basis blow-out, liquidation of the short in a squeeze, the venue cutting the funding interval, and spot/perp price divergence at exit.</p>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Venue coverage</h2>
+      <div class="scroll">
+        <table class="mini" id="venues">
+          <thead><tr><th class="l">Venue</th><th>Perps</th><th>Checked</th><th>Passed</th><th class="l">Why the rest failed</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="note" id="feeNote"></p>
+    </div>
+  </section>
+</div>
+
+<script>
+const DATA = /*__FUNDING_DATA__*/null;
+
+(function () {
+  const $ = (s, el = document) => el.querySelector(s);
+  const P = DATA.params;
+  const DAY = 86400000;
+  const state = { size: P.size, hold: P.hold, venue: "all", minApr: 0.1, spotOnly: false, oneCoin: true, sort: "apr", dir: -1, open: new Set() };
+
+  // ---------- formatting ----------
+  const fmtPct = (x, d = 1) => (x == null || !isFinite(x)) ? "–" : (x * 100).toFixed(d) + "%";
+  const fmtRate = (x) => (x * 100).toFixed(4) + "%";
+  const fmtUsd = (x, d = 0) => (x < 0 ? "−$" : "$") + Math.abs(x).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+  const fmtBig = (x) => x >= 1e9 ? "$" + (x / 1e9).toFixed(2) + "B" : x >= 1e6 ? "$" + (x / 1e6).toFixed(1) + "M" : "$" + (x / 1e3).toFixed(0) + "K";
+  const fmtTime = (t) => { const d = new Date(t); return d.toISOString().slice(5, 16).replace("T", " "); };
+  const fmtInterval = (h) => h >= 1 ? (Math.round(h * 10) / 10) + "h" : Math.round(h * 60) + "m";
+  const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  function econ(r) {
+    const fees = state.size * r.rt_fee;
+    const sc = (daily) => { const g = state.size * daily * state.hold; return { gross: g, net: g - fees }; };
+    return {
+      fees, base: sc(r.daily_rate), conservative: sc(r.min_daily), recent: sc(r.last24_daily),
+      breakeven_days: r.daily_rate > 0 ? r.rt_fee / r.daily_rate : Infinity,
+      volShare: r.volume_usd > 0 ? state.size / r.volume_usd : Infinity,
+    };
+  }
+
+  function flags(r, e) {
+    const out = [];
+    if (r.spot_venues.length === 0) out.push(["warn", "No spot found"]);
+    else if (!r.spot_same_venue) out.push(["", "Spot elsewhere"]);
+    else out.push(["good", "Spot here"]);
+    if (r.trend < -0.4) out.push(["warn", "Fading"]);
+    else if (r.trend > 0.4) out.push(["good", "Rising"]);
+    if (r.consistency < 0.35) out.push(["warn", "Uneven"]);
+    if (e.volShare > 0.005) out.push(["warn", (e.volShare * 100).toFixed(1) + "% of volume"]);
+    if (e.breakeven_days > state.hold) out.push(["warn", "Fees > income"]);
+    return out;
+  }
+
+  // ---------- filtering ----------
+  function visible() {
+    let rows = DATA.results.filter(r =>
+      (state.venue === "all" || r.venue === state.venue) &&
+      r.apr >= state.minApr &&
+      (!state.spotOnly || r.spot_same_venue));
+    rows = rows.map(r => ({ r, e: econ(r) }));
+    const key = (x) => {
+      switch (state.sort) {
+        case "gross": return x.e.base.gross;
+        case "net": return x.e.base.net;
+        case "breakeven_days": return x.e.breakeven_days;
+        default: return x.r[state.sort];
+      }
+    };
+    rows.sort((a, b) => (key(a) - key(b)) * state.dir);
+    if (state.oneCoin) {
+      const seen = new Set();
+      rows = rows.filter(x => { if (seen.has(x.r.coin)) return false; seen.add(x.r.coin); return true; });
+    }
+    return rows;
+  }
+
+  // ---------- charts ----------
+  function spark(r) {
+    const w = 96, h = 26, pts = r.payments, max = Math.max(...pts.map(p => p[1]));
+    const t0 = DATA.now_ms - P.days * DAY, span = P.days * DAY;
+    const xy = pts.map(p => [((p[0] - t0) / span) * (w - 4) + 2, h - 2 - (p[1] / max) * (h - 5)]);
+    const line = xy.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join("");
+    const area = line + `L${xy[xy.length - 1][0].toFixed(1)} ${h - 1}L${xy[0][0].toFixed(1)} ${h - 1}Z`;
+    const end = xy[xy.length - 1];
+    return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">
+      <line x1="0" x2="${w}" y1="${h - 1}" y2="${h - 1}" stroke="var(--grid)" stroke-width="1"/>
+      <path d="${area}" fill="var(--bar)" fill-opacity=".14"/>
+      <path d="${line}" fill="none" stroke="var(--bar)" stroke-width="1.5" stroke-linejoin="round"/>
+      <circle cx="${end[0].toFixed(1)}" cy="${end[1].toFixed(1)}" r="2.4" fill="var(--bar)" stroke="var(--panel)" stroke-width="1"/>
+    </svg>`;
+  }
+
+  function niceTicks(max, n = 4) {
+    const raw = max / n, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw) || raw;
+    const ticks = []; for (let v = 0; v <= max * 1.0001 + step * 0.999; v += step) { ticks.push(v); if (v >= max) break; }
+    return ticks;
+  }
+
+  function barChart(r, id) {
+    const W = 640, H = 200, L = 58, R = 8, T = 10, B = 26;
+    const pts = r.payments, t0 = DATA.now_ms - P.days * DAY, span = P.days * DAY;
+    const ticks = niceTicks(Math.max(...pts.map(p => p[1])));
+    const ymax = ticks[ticks.length - 1];
+    const x = (t) => L + ((t - t0) / span) * (W - L - R);
+    const y = (v) => T + (1 - v / ymax) * (H - T - B);
+    const slot = (W - L - R) / (P.days * 24 / r.interval_h);
+    const bw = Math.max(1, Math.min(24, slot - 2));
+    let g = "";
+    ticks.forEach(v => {
+      g += `<line x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="var(--grid)" stroke-width="1"/>`;
+      g += `<text x="${L - 6}" y="${(y(v) + 3).toFixed(1)}" text-anchor="end">${v === 0 ? "0" : (v * 100).toFixed(v * 100 < 0.01 ? 4 : 3)}%</text>`;
+    });
+    for (let d = 0; d <= P.days; d++) {
+      const t = t0 + d * DAY, xx = x(t);
+      g += `<line x1="${xx.toFixed(1)}" x2="${xx.toFixed(1)}" y1="${T}" y2="${H - B}" stroke="var(--grid)" stroke-width="1" stroke-dasharray="${d === 0 || d === P.days ? "" : "2 3"}"/>`;
+      if (d < P.days) g += `<text x="${(x(t + DAY / 2)).toFixed(1)}" y="${H - 8}" text-anchor="middle">${new Date(t + DAY / 2).toISOString().slice(5, 10)}</text>`;
+    }
+    let bars = "";
+    const rad = Math.min(4, bw / 2);
+    pts.forEach((p, i) => {
+      const cx = x(p[0]) - bw / 2, top = y(p[1]), base = H - B, h = Math.max(1, base - top), rr = Math.min(rad, h);
+      bars += `<path data-i="${i}" d="M${cx.toFixed(2)} ${base}V${(top + rr).toFixed(2)}Q${cx.toFixed(2)} ${top.toFixed(2)} ${(cx + rr).toFixed(2)} ${top.toFixed(2)}H${(cx + bw - rr).toFixed(2)}Q${(cx + bw).toFixed(2)} ${top.toFixed(2)} ${(cx + bw).toFixed(2)} ${(top + rr).toFixed(2)}V${base}Z" fill="var(--bar)"/>`;
+    });
+    const avg = r.total_rate / r.n, ya = y(avg).toFixed(1);
+    g += `<line x1="${L}" x2="${W - R}" y1="${ya}" y2="${ya}" stroke="var(--ink-2)" stroke-width="1" stroke-dasharray="4 3"/>`;
+    const labelY = Math.max(T + 9, +ya - 4);
+    g += `<text x="${W - R}" y="${labelY}" text-anchor="end" style="fill:var(--ink-2)">avg ${fmtRate(avg)}</text>`;
+    return `<div class="chart" id="${id}"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Funding payment history for ${esc(r.coin)} on ${esc(r.venue_label)}: ${r.n} payments, all positive">${g}<g class="bars">${bars}</g>
+      <line class="xh" x1="0" x2="0" y1="${T}" y2="${H - B}" stroke="var(--ink-2)" stroke-width="1" opacity="0"/>
+      <rect class="hit" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent"/></svg>
+      <div class="tip" hidden></div></div>`;
+  }
+
+  function wireChart(el, r) {
+    const svg = el.querySelector("svg"), tip = el.querySelector(".tip"), hit = el.querySelector(".hit"), xh = el.querySelector(".xh");
+    const bars = el.querySelectorAll(".bars path");
+    const W = 640, L = 58, R = 8, t0 = DATA.now_ms - P.days * DAY, span = P.days * DAY;
+    let last = -1;
+    const move = (ev) => {
+      const box = svg.getBoundingClientRect();
+      const sx = (ev.clientX - box.left) / box.width * W;
+      const t = t0 + ((sx - L) / (W - L - R)) * span;
+      let best = 0, bd = Infinity;
+      r.payments.forEach((p, i) => { const d = Math.abs(p[0] - t); if (d < bd) { bd = d; best = i; } });
+      if (best !== last) {
+        if (last >= 0) bars[last].setAttribute("fill", "var(--bar)");
+        bars[best].setAttribute("fill", "var(--bar-hover)");
+        last = best;
+      }
+      const p = r.payments[best];
+      const px = L + ((p[0] - t0) / span) * (W - L - R);
+      xh.setAttribute("x1", px); xh.setAttribute("x2", px); xh.setAttribute("opacity", ".35");
+      const perYear = 365 * 24 / r.interval_h;
+      tip.innerHTML = `<div class="t">${fmtTime(p[0])} UTC · payment ${best + 1} of ${r.n}</div>
+        <div class="r">${fmtRate(p[1])} <span style="color:var(--muted);font-weight:400">· ${fmtPct(p[1] * perYear)} APR</span></div>
+        <div>${fmtUsd(state.size * p[1], 2)} on ${fmtUsd(state.size)}</div>`;
+      tip.hidden = false;
+      const left = (px / W) * box.width;
+      tip.style.left = Math.min(Math.max(left, 90), box.width - 90) + "px";
+      tip.style.top = "8px";
+    };
+    const leave = () => { tip.hidden = true; xh.setAttribute("opacity", "0"); if (last >= 0) bars[last].setAttribute("fill", "var(--bar)"); last = -1; };
+    hit.addEventListener("mousemove", move);
+    hit.addEventListener("mouseleave", leave);
+    hit.addEventListener("touchstart", (e) => move(e.touches[0]), { passive: true });
+    hit.addEventListener("touchmove", (e) => move(e.touches[0]), { passive: true });
+  }
+
+  // ---------- detail ----------
+  function detail(r, e, idx) {
+    const t0 = DATA.now_ms - P.days * DAY;
+    const days = r.daily_buckets.map((b, i) => `<div class="day"><span class="d">${new Date(t0 + i * DAY + DAY / 2).toISOString().slice(5, 10)}${i === r.daily_buckets.length - 1 ? " · latest" : ""}</span>
+      <span class="a">${fmtPct(b * 365)}</span><span class="b">${fmtUsd(state.size * b, 2)}/day</span></div>`).join("");
+    const scen = [["Base · 5-day average", r.daily_rate, e.base], ["Conservative · worst day", r.min_daily, e.conservative], ["Recent · last 24h", r.last24_daily, e.recent]];
+    const scenRows = scen.map(([n, d, s], i) => `<tr><td class="l">${n}</td><td class="n">${fmtPct(d * 365)}</td><td class="n">${fmtUsd(s.gross)}</td><td class="n ${i === 0 ? "strong" : ""}">${fmtUsd(s.net)}</td></tr>`).join("");
+    const log = r.payments.slice().reverse().map(p => `<tr><td class="l n">${fmtTime(p[0])}</td><td class="n">${fmtRate(p[1])}</td><td class="n">${fmtUsd(state.size * p[1], 2)}</td></tr>`).join("");
+    const cur = r.current_rate == null ? "–" : `${fmtRate(r.current_rate)} <span style="color:var(--muted)">(${fmtPct(r.current_apr)} APR)</span>`;
+    const spot = r.spot_venues.length ? r.spot_venues.join(", ") : "none found on scanned venues";
+    return `<div class="detailgrid">
+      <div class="card">
+        <div class="cardhead"><h3>Every payment, last ${P.days} days</h3><p>${r.n} payments every ${fmtInterval(r.interval_h)} · all positive · hover a bar for detail</p></div>
+        ${barChart(r, "c" + idx)}
+        <div class="days">${days}</div>
+        <div class="cardhead"><h3>Payment log</h3><p>Newest first · $ at ${fmtUsd(state.size)} short</p></div>
+        <div class="log"><table class="mini"><thead><tr><th class="l">Time UTC</th><th>Rate</th><th>Paid to short</th></tr></thead><tbody>${log}</tbody></table></div>
+      </div>
+      <div class="card">
+        <div class="cardhead"><h3>${state.hold}-day projection at ${fmtUsd(state.size)}</h3></div>
+        <table class="mini"><thead><tr><th class="l">Scenario</th><th>APR</th><th>Gross</th><th>Net</th></tr></thead><tbody>${scenRows}</tbody></table>
+        <p class="note">Net subtracts ${fmtUsd(e.fees, 2)} of round-trip taker fees (${fmtPct(r.rt_fee, 2)} of size: open and close both legs). Fees are paid back after ${isFinite(e.breakeven_days) ? e.breakeven_days.toFixed(1) : "–"} days at the 5-day rate.</p>
+        <dl class="kv">
+          <dt>Symbol</dt><dd>${esc(r.symbol)}</dd>
+          <dt>Next payment (predicted)</dt><dd>${cur}</dd>
+          <dt>Per-payment range</dt><dd>${fmtRate(r.min_rate)} – ${fmtRate(r.max_rate)}</dd>
+          <dt>Total over ${P.days}d</dt><dd>${fmtRate(r.total_rate)} · ${fmtUsd(state.size * r.total_rate, 2)}</dd>
+          <dt>Compounded APY</dt><dd>${fmtPct(r.apy)}</dd>
+          <dt>Worst day / average</dt><dd>${(r.consistency * 100).toFixed(0)}%</dd>
+          <dt>Last 24h vs average</dt><dd>${r.trend >= 0 ? "+" : ""}${(r.trend * 100).toFixed(0)}%</dd>
+          <dt>24h perp volume</dt><dd>${fmtBig(r.volume_usd)}</dd>
+          <dt>Your size vs volume</dt><dd>${(e.volShare * 100).toFixed(2)}%</dd>
+          <dt>Capital at 2× short</dt><dd>${fmtUsd(state.size * 1.5)}</dd>
+          <dt>Spot hedge on</dt><dd style="white-space:normal">${esc(spot)}</dd>
+        </dl>
+      </div>
+    </div>`;
+  }
+
+  // ---------- render ----------
+  function render() {
+    const rows = visible();
+    $("#grossHead").textContent = `Gross ${state.hold}d`;
+    $("#netHead").textContent = `Net ${state.hold}d`;
+    document.querySelectorAll("th[data-k]").forEach(th => th.setAttribute("aria-sort", th.dataset.k === state.sort ? (state.dir < 0 ? "descending" : "ascending") : "none"));
+
+    const tb = $("#rows");
+    if (!rows.length) {
+      tb.innerHTML = `<tr><td colspan="12" class="empty l">No market matches these filters. Lower the minimum APR or pick another venue.</td></tr>`;
+    } else {
+      tb.innerHTML = rows.map(({ r, e }, i) => {
+        const key = r.venue + ":" + r.symbol, open = state.open.has(key);
+        const fl = flags(r, e).map(([c, t]) => `<span class="chip ${c}">${t}</span>`).join("");
+        const main = `<tr class="row" data-key="${esc(key)}" aria-expanded="${open}" tabindex="0">
+          <td class="l expander">${open ? "▾" : "▸"}</td>
+          <td class="l rank">${i + 1}</td>
+          <td class="l"><div class="coin"><div><b>${esc(r.coin)}</b><div class="venue">${esc(r.venue_label)} · every ${fmtInterval(r.interval_h)}</div></div>${spark(r)}</div></td>
+          <td class="n apr">${fmtPct(r.apr)}</td>
+          <td class="n">${fmtPct(r.apr_last24)}</td>
+          <td class="n">${fmtPct(r.apr_min_day)}</td>
+          <td class="l n">${r.n} / ${r.n} <span class="pos">+</span></td>
+          <td class="n">${fmtBig(r.volume_usd)}</td>
+          <td class="n">${fmtUsd(e.base.gross)}</td>
+          <td class="n apr">${fmtUsd(e.base.net)}</td>
+          <td class="n">${isFinite(e.breakeven_days) ? e.breakeven_days.toFixed(1) + "d" : "–"}</td>
+          <td class="l"><div class="chips">${fl}</div></td></tr>`;
+        return main + (open ? `<tr class="detail"><td colspan="12">${detail(r, e, i)}</td></tr>` : "");
+      }).join("");
+      rows.forEach(({ r }, i) => { const el = document.getElementById("c" + i); if (el) wireChart(el, r); });
+    }
+
+    // tiles
+    const all = DATA.results;
+    const scanned = DATA.venues.reduce((a, v) => a + v.scanned, 0);
+    const aprs = rows.map(x => x.r.apr).sort((a, b) => a - b);
+    const med = aprs.length ? aprs[Math.floor(aprs.length / 2)] : null;
+    const top = rows.slice().sort((a, b) => b.e.base.net - a.e.base.net)[0];
+    const top5 = rows.slice().sort((a, b) => b.e.base.net - a.e.base.net).slice(0, 5);
+    const top5net = top5.reduce((a, x) => a + x.e.base.net, 0) / (top5.length || 1);
+    $("#tiles").innerHTML = `
+      <div class="tile"><span class="eyebrow">Passed the filter</span><span class="v">${all.length}<span style="font-size:15px;color:var(--muted)"> / ${scanned}</span></span><span class="s">markets positive on every payment, ${rows.length} shown</span></div>
+      <div class="tile"><span class="eyebrow">Median APR shown</span><span class="v">${fmtPct(med)}</span><span class="s">5-day average, simple</span></div>
+      <div class="tile"><span class="eyebrow">Best net, ${state.hold}d</span><span class="v">${top ? fmtUsd(top.e.base.net) : "–"}</span><span class="s">${top ? esc(top.r.coin) + " on " + esc(top.r.venue_label) + " at " + fmtUsd(state.size) : "no match"}</span></div>
+      <div class="tile"><span class="eyebrow">Top 5 together, ${state.hold}d</span><span class="v">${top5.length ? fmtUsd(top5net * top5.length) : "–"}</span><span class="s">net if you put ${fmtUsd(state.size)} in each of the top ${top5.length} (${fmtUsd(state.size * top5.length)} per leg in total)</span></div>`;
+
+    $("#tableNote").textContent = `${rows.length} market${rows.length === 1 ? "" : "s"} · click a row for its payment history and projection`;
+  }
+
+  // ---------- static parts ----------
+  const gen = new Date(DATA.generated_at);
+  $("#meta").innerHTML = `<span>Snapshot <b>${gen.toISOString().slice(0, 16).replace("T", " ")} UTC</b></span>
+    <span>Lookback <b>${P.days} days</b></span>
+    <span>Min 24h volume <b>${fmtBig(P.min_volume)}</b></span>
+    <span>Venues <b>${DATA.venues.map(v => ({ okx: "OKX", bitget: "Bitget", gate: "Gate", hyperliquid: "Hyperliquid" })[v.venue]).join(", ")}</b></span>`;
+
+  const vb = $("#venues tbody");
+  vb.innerHTML = DATA.venues.map(v => {
+    const rej = Object.entries(v.rejected).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(" · ");
+    const name = { okx: "OKX", bitget: "Bitget", gate: "Gate", hyperliquid: "Hyperliquid" }[v.venue];
+    return `<tr><td class="l">${name}</td><td class="n">${v.markets}</td><td class="n">${v.scanned}</td><td class="n">${v.passed}</td><td class="rej">${v.error ? "Error: " + esc(v.error) : esc(rej)}</td></tr>`;
+  }).join("");
+  $("#feeNote").textContent = `"Checked" counts perps above ${fmtBig(P.min_volume)} of 24h volume. Fees assumed: spot taker ${fmtPct(P.spot_fee, 2)} per side; perp taker ` +
+    Object.entries(P.perp_fee).map(([k, f]) => `${({ okx: "OKX", bitget: "Bitget", gate: "Gate", hyperliquid: "Hyperliquid" })[k]} ${fmtPct(f, 3)}`).join(", ") + ". Maker orders or VIP tiers cut these.";
+
+  const venueSel = $("#venue");
+  venueSel.innerHTML = `<option value="all">All venues</option>` + DATA.venues.map(v => `<option value="${v.venue}">${({ okx: "OKX", bitget: "Bitget", gate: "Gate", hyperliquid: "Hyperliquid" })[v.venue]}</option>`).join("");
+
+  // ---------- controls ----------
+  const sizeIn = $("#size"), holdIn = $("#hold");
+  try { const s = JSON.parse(localStorage.getItem("fcs-settings") || "null"); if (s && s.size > 0) { state.size = s.size; state.hold = s.hold || state.hold; } } catch (e) {}
+  sizeIn.value = state.size; holdIn.value = state.hold; $("#minApr").value = String(state.minApr);
+  const save = () => { try { localStorage.setItem("fcs-settings", JSON.stringify({ size: state.size, hold: state.hold })); } catch (e) {} };
+
+  const presets = (el, vals, fmt, get, set) => {
+    el.innerHTML = vals.map(v => `<button type="button" data-v="${v}">${fmt(v)}</button>`).join("");
+    const sync = () => el.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.v === get())));
+    el.addEventListener("click", (ev) => { const b = ev.target.closest("button"); if (!b) return; set(+b.dataset.v); sync(); save(); render(); });
+    sync(); return sync;
+  };
+  const syncSize = presets($("#sizePresets"), [1000, 5000, 10000, 25000, 50000, 100000], v => v >= 1000 ? (v / 1000) + "k" : v, () => state.size, v => { state.size = v; sizeIn.value = v; });
+  const syncHold = presets($("#holdPresets"), [7, 14, 30, 40, 90], v => v + "d", () => state.hold, v => { state.hold = v; holdIn.value = v; });
+
+  sizeIn.addEventListener("input", () => { const v = parseFloat(sizeIn.value); if (v > 0) { state.size = v; syncSize(); save(); render(); } });
+  holdIn.addEventListener("input", () => { const v = parseInt(holdIn.value, 10); if (v > 0) { state.hold = v; syncHold(); save(); render(); } });
+  venueSel.addEventListener("change", () => { state.venue = venueSel.value; render(); });
+  $("#minApr").addEventListener("change", (e) => { state.minApr = parseFloat(e.target.value); render(); });
+  $("#spotOnly").addEventListener("change", (e) => { state.spotOnly = e.target.checked; render(); });
+  $("#oneCoin").addEventListener("change", (e) => { state.oneCoin = e.target.checked; render(); });
+
+  document.querySelectorAll("th[data-k] button").forEach(b => b.addEventListener("click", () => {
+    const k = b.parentElement.dataset.k;
+    if (state.sort === k) state.dir *= -1; else { state.sort = k; state.dir = k === "breakeven_days" ? 1 : -1; }
+    render();
+  }));
+  const toggle = (tr) => { const k = tr.dataset.key; state.open.has(k) ? state.open.delete(k) : state.open.add(k); render(); };
+  $("#rows").addEventListener("click", (e) => { if (e.target.closest(".detail")) return; const tr = e.target.closest("tr.row"); if (tr) toggle(tr); });
+  $("#rows").addEventListener("keydown", (e) => { const tr = e.target.closest("tr.row"); if (tr && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); toggle(tr); } });
+
+  // Open the top row so the first view shows a payment history.
+  const first = visible()[0];
+  if (first) state.open.add(first.r.venue + ":" + first.r.symbol);
+  render();
+})();
+</script>
